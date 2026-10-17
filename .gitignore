@@ -36,17 +36,20 @@ proguard/
 # Android Studio captures folder
 captures/
 
-# IntelliJ IDEA
+# IntelliJ IDEA / Android Studio
 *.iml
 .idea/
 .kotlin/
 
-# Keystore files and signing secrets
+# Keystore files, certificates, and signing secrets
 *.jks
 *.keystore
 *secret*
 *base64*
 *.b64
+attendly-release.keystore
+release.keystore
+attendly-keystore-base64.txt
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
@@ -57,4 +60,7 @@ captures/
 
 # OS-specific
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
+ehthumbs.db
