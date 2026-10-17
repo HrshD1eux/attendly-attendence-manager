@@ -4,7 +4,7 @@ set -euo pipefail
 # generate-release-notes.sh: Generates formatted dynamic release notes from git commits
 TAG_NAME="${1:-}"
 OUTPUT_FILE="${2:-release_notes.md}"
-REPO_NAME="${GITHUB_REPOSITORY:-hrshd1eux/attendly}"
+REPO_NAME="${GITHUB_REPOSITORY:-HrshD1eux/attendly-attendence-manager}"
 
 # Determine previous tag
 PREV_TAG=""

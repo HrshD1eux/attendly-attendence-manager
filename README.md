@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://hrshd1eux.github.io/attendly-attendence-manager/"><img src="https://img.shields.io/badge/Website-GitHub_Pages-blue?logo=github" alt="Website" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
   <img src="https://img.shields.io/badge/FOSS-100%25_Free_%26_Open_Source-success.svg" alt="100% FOSS" />
   <img src="https://img.shields.io/badge/Google_Play_Services-0%25_Zero_GMS-brightgreen.svg" alt="Zero GMS" />
