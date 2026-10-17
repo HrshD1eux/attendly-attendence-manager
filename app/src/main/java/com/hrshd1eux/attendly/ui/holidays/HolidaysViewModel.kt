@@ -32,6 +32,15 @@ class HolidaysViewModel @Inject constructor(
     private val _parseResult = MutableStateFlow<HolidayParseResult?>(null)
     private val _snackbarMessage = MutableStateFlow<String?>(null)
 
+    init {
+        viewModelScope.launch {
+            val existing = holidayRepository.getAllHolidaysSync()
+            if (existing.isEmpty()) {
+                holidayRepository.seedDefaultNationalHolidays(overwrite = false)
+            }
+        }
+    }
+
     val uiState: StateFlow<HolidaysUiState> = combine(
         holidayRepository.getAllHolidays(),
         _parseResult,
@@ -51,6 +60,13 @@ class HolidaysViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = HolidaysUiState(isLoading = true)
     )
+
+    fun loadNationalHolidays() {
+        viewModelScope.launch {
+            holidayRepository.seedDefaultNationalHolidays(overwrite = false)
+            _snackbarMessage.value = "National holidays added!"
+        }
+    }
 
     fun parseHolidayText(text: String) {
         val result = HolidayTextParser.parse(text)

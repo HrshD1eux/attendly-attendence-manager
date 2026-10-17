@@ -23,11 +23,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -182,14 +184,42 @@ fun CalendarScreen(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    if (uiState.activeSubjects.isNotEmpty()) {
-                        Button(
-                            onClick = viewModel::openAddAdHocDialog,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.size(4.dp))
-                            Text("Record Class")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (uiState.scheduledTimetableSessions.isNotEmpty()) {
+                            Button(
+                                onClick = viewModel::markAllScheduledPresent,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = statusColors.present,
+                                    contentColor = MaterialTheme.colorScheme.surface
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DoneAll,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text("All Present")
+                            }
+                        }
+
+                        if (uiState.activeSubjects.isNotEmpty() || uiState.scheduledTimetableSessions.isNotEmpty()) {
+                            Button(
+                                onClick = viewModel::openRecordDialog,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text("Record")
+                            }
                         }
                     }
                 }
@@ -231,13 +261,17 @@ fun CalendarScreen(
             }
         }
 
-        // Add Ad-Hoc Session Dialog
-        if (uiState.isAddAdHocDialogOpen) {
-            AddAdHocSessionDialog(
-                subjects = uiState.activeSubjects,
+        // Record Timetable / Ad-Hoc Classes Dialog
+        if (uiState.isRecordDialogOpen) {
+            RecordDateClassesDialog(
                 selectedDate = uiState.selectedDate,
-                onDismiss = viewModel::closeAddAdHocDialog,
-                onConfirm = viewModel::addAdHocSession
+                scheduledSessions = uiState.scheduledTimetableSessions,
+                alreadyRecordedSessions = uiState.selectedDateSessions,
+                activeSubjects = uiState.activeSubjects,
+                onDismiss = viewModel::closeRecordDialog,
+                onMarkAllPresent = viewModel::markAllScheduledPresent,
+                onRecordSelected = viewModel::recordSelectedScheduledSessions,
+                onRecordAdHoc = viewModel::addAdHocSession
             )
         }
     }
@@ -424,94 +458,4 @@ private fun CalendarSessionItem(
             }
         }
     }
-}
-
-@Composable
-private fun AddAdHocSessionDialog(
-    subjects: List<Subject>,
-    selectedDate: LocalDate,
-    onDismiss: () -> Unit,
-    onConfirm: (subjectId: Long, status: AttendanceStatus) -> Unit
-) {
-    var selectedSubjectId by remember { mutableStateOf(subjects.firstOrNull()?.id ?: 0L) }
-    var selectedStatus by remember { mutableStateOf(AttendanceStatus.PRESENT) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Record Class for ${TimeUtils.formatDate(selectedDate, "MMM d")}")
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Select Subject:",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-
-                subjects.forEach { subject ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { selectedSubjectId = subject.id }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        androidx.compose.material3.RadioButton(
-                            selected = selectedSubjectId == subject.id,
-                            onClick = { selectedSubjectId = subject.id }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = subject.name,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "Status:",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AttendanceStatus.entries.forEach { status ->
-                        val isSelected = selectedStatus == status
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .clickable { selectedStatus = status }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = status.name,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(selectedSubjectId, selectedStatus) },
-                enabled = selectedSubjectId != 0L
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }

@@ -63,4 +63,17 @@ class HolidayRepositoryImpl @Inject constructor(
     override suspend fun clearAllHolidays() {
         holidayDao.clearAllHolidays()
     }
+
+    override suspend fun seedDefaultNationalHolidays(overwrite: Boolean) {
+        if (overwrite) {
+            holidayDao.clearAllHolidays()
+        }
+        val existingDates = holidayDao.getAllHolidaysSync().map { it.date }.toSet()
+        val toInsert = com.hrshd1eux.attendly.domain.model.DefaultHolidays.LIST
+            .filter { !existingDates.contains(it.date.toString()) }
+            .map { HolidayEntity.fromDomain(it) }
+        if (toInsert.isNotEmpty()) {
+            holidayDao.insertHolidays(toInsert)
+        }
+    }
 }

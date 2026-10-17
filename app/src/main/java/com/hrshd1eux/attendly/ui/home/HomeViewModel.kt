@@ -34,7 +34,8 @@ data class HomeUiState(
     val overallSummary: AttendanceSummary? = null,
     val subjectDetails: List<SubjectAttendanceDetail> = emptyList(),
     val todayHoliday: Holiday? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val detectedBackup: com.hrshd1eux.attendly.data.backup.AutoBackupSummary? = null
 )
 
 sealed class HomeUiEvent {
@@ -49,22 +50,43 @@ sealed class HomeUiEvent {
 class HomeViewModel @Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val holidayRepository: HolidayRepository,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val autoBackupManager: com.hrshd1eux.attendly.data.backup.AutoBackupManager
 ) : ViewModel() {
 
+    private val _detectedBackup = MutableStateFlow<com.hrshd1eux.attendly.data.backup.AutoBackupSummary?>(null)
+
+    init {
+        viewModelScope.launch {
+            val backup = autoBackupManager.checkForExistingAutoBackup()
+            if (backup != null) {
+                _detectedBackup.value = backup
+            }
+        }
+    }
+
     val uiState: StateFlow<HomeUiState> = combine(
-        preferencesManager.userPreferencesFlow,
+        combine(preferencesManager.userPreferencesFlow, _detectedBackup) { prefs, backup ->
+            Pair(prefs, backup)
+        },
         attendanceRepository.getTodayClassesWithStatus(LocalDate.now()),
         attendanceRepository.getOverallAttendanceSummary(),
         attendanceRepository.getSubjectDetails(),
         holidayRepository.getHolidayForDate(LocalDate.now())
-    ) { prefs, todayClasses, overallSummary, subjectDetails, todayHoliday ->
+    ) { (prefs, detectedBackup), todayClasses, overallSummary, subjectDetails, todayHoliday ->
         val currentMinute = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
         val activePrompt = if (prefs.isOnLeaveToday || todayHoliday != null) {
             null
         } else {
             // Pick ongoing or finished unmarked class, otherwise null
             todayClasses.firstOrNull { it.status == null && currentMinute >= (it.startMinute - 10) }
+        }
+
+        // Only show detected backup if no subjects exist and not dismissed
+        val backupToShow = if (subjectDetails.isEmpty() && !prefs.autoRestorePromptDismissed) {
+            detectedBackup
+        } else {
+            null
         }
 
         HomeUiState(
@@ -76,7 +98,8 @@ class HomeViewModel @Inject constructor(
             overallSummary = overallSummary,
             subjectDetails = subjectDetails,
             todayHoliday = todayHoliday,
-            isLoading = false
+            isLoading = false,
+            detectedBackup = backupToShow
         )
     }.stateIn(
         scope = viewModelScope,
@@ -241,6 +264,22 @@ class HomeViewModel @Inject constructor(
     fun removeTodayHoliday() {
         viewModelScope.launch {
             holidayRepository.deleteHolidayByDate(LocalDate.now())
+        }
+    }
+
+    fun restoreDetectedBackup() {
+        viewModelScope.launch {
+            val success = autoBackupManager.restoreAutoBackup()
+            if (success) {
+                _detectedBackup.value = null
+            }
+        }
+    }
+
+    fun dismissDetectedBackup() {
+        viewModelScope.launch {
+            preferencesManager.setAutoRestorePromptDismissed(true)
+            _detectedBackup.value = null
         }
     }
 }

@@ -66,12 +66,15 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager,
-    private val backupRestoreRepository: BackupRestoreRepository
+    private val backupRestoreRepository: BackupRestoreRepository,
+    private val autoBackupManager: com.hrshd1eux.attendly.data.backup.AutoBackupManager,
+    private val subjectRepository: com.hrshd1eux.attendly.domain.repository.SubjectRepository
 ) : ViewModel() {
 
     private val _isEditNameDialogOpen = MutableStateFlow(false)
     private val _isExplanationDialogOpen = MutableStateFlow(false)
     private val _isResetConfirmDialogOpen = MutableStateFlow(false)
+    val isStartSemesterDialogOpen = MutableStateFlow(false)
     private val _backupValidationResult = MutableStateFlow<BackupValidationResult?>(null)
     private val _pendingRestoreJson = MutableStateFlow<String?>(null)
     private val _updateCheckState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -385,4 +388,40 @@ class SettingsViewModel @Inject constructor(
         }
         return false
     }
+
+    fun openStartSemesterDialog() {
+        isStartSemesterDialogOpen.value = true
+    }
+
+    fun closeStartSemesterDialog() {
+        isStartSemesterDialogOpen.value = false
+    }
+
+    fun startNextSemester(clearTimetable: Boolean) {
+        viewModelScope.launch {
+            subjectRepository.startNextSemester(clearTimetable)
+            autoBackupManager.performAutoBackup()
+            closeStartSemesterDialog()
+        }
+    }
+
+    fun performStorageAutoBackup(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val res = autoBackupManager.performAutoBackup()
+            res.onSuccess { file ->
+                onResult(true, file.name)
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Failed")
+            }
+        }
+    }
+
+    fun restoreStorageAutoBackup(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = autoBackupManager.restoreAutoBackup()
+            onResult(success)
+        }
+    }
+
+    fun getAutoBackupDisplayPath(): String = autoBackupManager.getAutoBackupDisplayPath()
 }

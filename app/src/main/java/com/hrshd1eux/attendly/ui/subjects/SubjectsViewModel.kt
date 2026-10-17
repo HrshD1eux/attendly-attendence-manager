@@ -36,13 +36,14 @@ enum class SubjectSort(val displayName: String) {
 
 data class SubjectsUiState(
     val activeSubjects: List<SubjectAttendanceDetail> = emptyList(),
-    val archivedSubjects: List<Subject> = emptyList(),
+    val archivedSubjects: List<SubjectAttendanceDetail> = emptyList(),
     val defaultTarget: Int = 75,
     val selectedFilter: SubjectFilter = SubjectFilter.ALL,
     val selectedSort: SubjectSort = SubjectSort.DEFAULT,
     val searchQuery: String = "",
     val isAddDialogOpen: Boolean = false,
-    val subjectToEdit: Subject? = null
+    val subjectToEdit: Subject? = null,
+    val isStartSemesterDialogOpen: Boolean = false
 ) {
     // Quick statistics
     val totalActiveCount: Int get() = activeSubjects.size
@@ -80,11 +81,21 @@ data class SubjectsUiState(
         }
     }
 
-    val filteredArchivedSubjects: List<Subject> get() {
-        if (searchQuery.isBlank()) return archivedSubjects
-        val q = searchQuery.trim().lowercase()
-        return archivedSubjects.filter {
-            it.name.lowercase().contains(q) || it.shortCode.lowercase().contains(q)
+    val filteredArchivedSubjects: List<SubjectAttendanceDetail> get() {
+        var list = archivedSubjects
+        if (searchQuery.isNotBlank()) {
+            val q = searchQuery.trim().lowercase()
+            list = list.filter {
+                it.subject.name.lowercase().contains(q) ||
+                it.subject.shortCode.lowercase().contains(q) ||
+                it.subject.location.lowercase().contains(q)
+            }
+        }
+        return when (selectedSort) {
+            SubjectSort.DEFAULT -> list
+            SubjectSort.LOWEST_PERCENTAGE -> list.sortedBy { it.summary.percentage }
+            SubjectSort.HIGHEST_PERCENTAGE -> list.sortedByDescending { it.summary.percentage }
+            SubjectSort.NAME -> list.sortedBy { it.subject.name.lowercase() }
         }
     }
 }
@@ -93,7 +104,8 @@ data class SubjectsUiState(
 class SubjectsViewModel @Inject constructor(
     private val subjectRepository: SubjectRepository,
     private val attendanceRepository: AttendanceRepository,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val autoBackupManager: com.hrshd1eux.attendly.data.backup.AutoBackupManager
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(SubjectFilter.ALL)
@@ -101,13 +113,15 @@ class SubjectsViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     private val _dialogState = MutableStateFlow<Subject?>(null)
     private val _isAddOpen = MutableStateFlow(false)
+    private val _isStartSemesterDialogOpen = MutableStateFlow(false)
 
     private data class FilterState(
         val filter: SubjectFilter,
         val sort: SubjectSort,
         val search: String,
         val isAdd: Boolean,
-        val subjectToEdit: Subject?
+        val subjectToEdit: Subject?,
+        val isStartSemesterOpen: Boolean
     )
 
     private val filterStateFlow = combine(
@@ -115,26 +129,29 @@ class SubjectsViewModel @Inject constructor(
         _selectedSort,
         _searchQuery,
         _isAddOpen,
-        _dialogState
-    ) { filter, sort, search, isAdd, dialogState ->
-        FilterState(filter, sort, search, isAdd, dialogState)
+        combine(_dialogState, _isStartSemesterDialogOpen) { toEdit, isSemesterOpen ->
+            Pair(toEdit, isSemesterOpen)
+        }
+    ) { filter, sort, search, isAdd, (dialogState, isSemesterOpen) ->
+        FilterState(filter, sort, search, isAdd, dialogState, isSemesterOpen)
     }
 
     val uiState: StateFlow<SubjectsUiState> = combine(
         attendanceRepository.getSubjectDetails(),
-        subjectRepository.getArchivedSubjects(),
+        attendanceRepository.getArchivedSubjectDetails(),
         preferencesManager.userPreferencesFlow,
         filterStateFlow
-    ) { activeDetails, archived, prefs, criteria ->
+    ) { activeDetails, archivedDetails, prefs, criteria ->
         SubjectsUiState(
             activeSubjects = activeDetails,
-            archivedSubjects = archived,
+            archivedSubjects = archivedDetails,
             defaultTarget = prefs.defaultTargetPercentage,
             selectedFilter = criteria.filter,
             selectedSort = criteria.sort,
             searchQuery = criteria.search,
             isAddDialogOpen = criteria.isAdd || criteria.subjectToEdit != null,
-            subjectToEdit = criteria.subjectToEdit
+            subjectToEdit = criteria.subjectToEdit,
+            isStartSemesterDialogOpen = criteria.isStartSemesterOpen
         )
     }.stateIn(
         scope = viewModelScope,
@@ -233,6 +250,22 @@ class SubjectsViewModel @Inject constructor(
                 endMinute = startMinute + 50,
                 units = 1
             )
+        }
+    }
+
+    fun openStartNextSemesterDialog() {
+        _isStartSemesterDialogOpen.value = true
+    }
+
+    fun closeStartNextSemesterDialog() {
+        _isStartSemesterDialogOpen.value = false
+    }
+
+    fun startNextSemester(clearTimetable: Boolean) {
+        viewModelScope.launch {
+            subjectRepository.startNextSemester(clearTimetable)
+            autoBackupManager.performAutoBackup()
+            closeStartNextSemesterDialog()
         }
     }
 }

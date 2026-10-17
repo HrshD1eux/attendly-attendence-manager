@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
@@ -50,6 +51,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -96,6 +98,18 @@ fun SubjectsScreen(
                             imageVector = if (isSearchVisible) Icons.Default.Clear else Icons.Default.Search,
                             contentDescription = "Search"
                         )
+                    }
+
+                    if (uiState.totalActiveCount > 0) {
+                        TextButton(onClick = viewModel::openStartNextSemesterDialog) {
+                            Icon(
+                                imageVector = Icons.Default.AutoStories,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Next Sem", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        }
                     }
 
                     // Sort menu button
@@ -359,51 +373,100 @@ fun SubjectsScreen(
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(uiState.filteredArchivedSubjects, key = { it.id }) { subject ->
+                        items(uiState.filteredArchivedSubjects, key = { it.subject.id }) { detail ->
+                            val subject = detail.subject
+                            val summary = detail.summary
+                            val isSafe = summary.percentage >= subject.targetPercentage
+
                             Card(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onNavigateToSubjectDetail(subject.id) },
                                 shape = RoundedCornerShape(18.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                )
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = subject.name,
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "Target: ${subject.targetPercentage}% • Archived",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = subject.name,
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+                                                if (subject.shortCode.isNotBlank()) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = subject.shortCode,
+                                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                                        )
+                                                    }
+                                                }
+                                            }
 
-                                    Row {
-                                        IconButton(onClick = { viewModel.setArchivedStatus(subject.id, false) }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Unarchive,
-                                                contentDescription = "Unarchive",
-                                                tint = MaterialTheme.colorScheme.primary
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "Target: ${subject.targetPercentage}% • ${summary.presentUnits}/${summary.totalEligibleUnits} classes attended",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
-                                        IconButton(onClick = { viewModel.deleteSubject(subject.id) }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete",
-                                                tint = MaterialTheme.colorScheme.error
+
+                                        // Attendance Percentage Badge
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = String.format(Locale.US, "%.1f%%", summary.percentage),
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Black,
+                                                    color = if (isSafe) statusColors.present else statusColors.warning
+                                                )
                                             )
+                                            Text(
+                                                text = if (isSafe) "Achieved" else "Below Goal",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (isSafe) statusColors.present else statusColors.warning
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Footer row with actions
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Tap to review full semester history",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+
+                                        Row {
+                                            androidx.compose.material3.TextButton(onClick = { viewModel.setArchivedStatus(subject.id, false) }) {
+                                                Icon(imageVector = Icons.Default.Unarchive, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.size(4.dp))
+                                                Text("Restore")
+                                            }
+                                            IconButton(onClick = { viewModel.deleteSubject(subject.id) }, modifier = Modifier.size(32.dp)) {
+                                                Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                            }
                                         }
                                     }
                                 }
@@ -476,6 +539,15 @@ fun SubjectsScreen(
                 defaultTarget = uiState.defaultTarget,
                 onDismiss = viewModel::closeDialog,
                 onSave = viewModel::saveSubject
+            )
+        }
+
+        // Start Next Semester Dialog
+        if (uiState.isStartSemesterDialogOpen) {
+            StartNextSemesterDialog(
+                activeSubjectCount = uiState.totalActiveCount,
+                onDismiss = viewModel::closeStartNextSemesterDialog,
+                onConfirm = viewModel::startNextSemester
             )
         }
     }

@@ -162,6 +162,13 @@ fun HolidaysScreen(
                 canNavigateBack = true,
                 onNavigateBack = onNavigateBack,
                 actions = {
+                    IconButton(onClick = viewModel::loadNationalHolidays) {
+                        Icon(
+                            imageVector = Icons.Default.Celebration,
+                            contentDescription = "Load National Holidays",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(onClick = { isAiPromptOpen = true }) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
@@ -221,7 +228,8 @@ fun HolidaysScreen(
                     todayHoliday = uiState.todayHoliday,
                     onDeleteHoliday = viewModel::deleteHoliday,
                     onNavigateToImport = { selectedTab = 1 },
-                    onOpenAddSingle = { isAddSingleDialogOpen = true }
+                    onOpenAddSingle = { isAddSingleDialogOpen = true },
+                    onLoadNationalHolidays = viewModel::loadNationalHolidays
                 )
             } else {
                 // Import & AI Tab
@@ -256,7 +264,8 @@ private fun SavedHolidaysTab(
     todayHoliday: Holiday?,
     onDeleteHoliday: (Long) -> Unit,
     onNavigateToImport: () -> Unit,
-    onOpenAddSingle: () -> Unit
+    onOpenAddSingle: () -> Unit,
+    onLoadNationalHolidays: () -> Unit
 ) {
     if (holidays.isEmpty()) {
         Box(
@@ -297,25 +306,37 @@ private fun SavedHolidaysTab(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = onNavigateToImport,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("AI Import / Paste")
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = onNavigateToImport,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("AI Import / Paste")
+                        }
+
+                        OutlinedButton(
+                            onClick = onOpenAddSingle,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Add Date")
+                        }
                     }
 
                     OutlinedButton(
-                        onClick = onOpenAddSingle,
+                        onClick = onLoadNationalHolidays,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Add Date")
+                        Text("🇮🇳 Load Default National Holidays")
                     }
                 }
             }

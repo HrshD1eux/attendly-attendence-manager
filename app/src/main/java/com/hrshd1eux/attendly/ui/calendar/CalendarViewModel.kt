@@ -7,8 +7,10 @@ import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
 import com.hrshd1eux.attendly.domain.model.ClassSession
 import com.hrshd1eux.attendly.domain.model.Subject
+import com.hrshd1eux.attendly.domain.model.TimetableSession
 import com.hrshd1eux.attendly.domain.repository.AttendanceRepository
 import com.hrshd1eux.attendly.domain.repository.SubjectRepository
+import com.hrshd1eux.attendly.domain.repository.TimetableRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,48 +29,53 @@ data class CalendarUiState(
     val selectedDate: LocalDate = LocalDate.now(),
     val monthSessions: List<ClassSession> = emptyList(),
     val selectedDateSessions: List<ClassSession> = emptyList(),
+    val scheduledTimetableSessions: List<TimetableSession> = emptyList(),
     val activeSubjects: List<Subject> = emptyList(),
     val firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
-    val isAddAdHocDialogOpen: Boolean = false
+    val isRecordDialogOpen: Boolean = false
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val attendanceRepository: AttendanceRepository,
+    private val timetableRepository: TimetableRepository,
     private val subjectRepository: SubjectRepository,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     private val _selectedDate = MutableStateFlow(LocalDate.now())
-    private val _isAddAdHocDialogOpen = MutableStateFlow(false)
+    private val _isRecordDialogOpen = MutableStateFlow(false)
 
     val uiState: StateFlow<CalendarUiState> = combine(
         _currentMonth,
         _selectedDate,
         preferencesManager.userPreferencesFlow,
         subjectRepository.getActiveSubjects(),
-        _isAddAdHocDialogOpen
+        _isRecordDialogOpen
     ) { month, selectedDate, prefs, subjects, isDialogOpen ->
         CalendarUiState(
             currentMonth = month,
             selectedDate = selectedDate,
             activeSubjects = subjects,
             firstDayOfWeek = prefs.firstDayOfWeek,
-            isAddAdHocDialogOpen = isDialogOpen
+            isRecordDialogOpen = isDialogOpen
         )
     }.flatMapLatest { baseState ->
         val start = baseState.currentMonth.atDay(1)
         val end = baseState.currentMonth.atEndOfMonth()
+        val dayOfWeek = DayOfWeek.fromJavaDayOfWeek(baseState.selectedDate.dayOfWeek)
 
         combine(
             attendanceRepository.getSessionsBetweenDates(start, end),
-            attendanceRepository.getSessionsForDate(baseState.selectedDate)
-        ) { monthSessions, selectedDateSessions ->
+            attendanceRepository.getSessionsForDate(baseState.selectedDate),
+            timetableRepository.getSessionsForDay(dayOfWeek)
+        ) { monthSessions, selectedDateSessions, scheduledSessions ->
             baseState.copy(
                 monthSessions = monthSessions,
-                selectedDateSessions = selectedDateSessions
+                selectedDateSessions = selectedDateSessions,
+                scheduledTimetableSessions = scheduledSessions
             )
         }
     }.stateIn(
@@ -98,12 +105,55 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
-    fun openAddAdHocDialog() {
-        _isAddAdHocDialogOpen.value = true
+    fun openRecordDialog() {
+        _isRecordDialogOpen.value = true
     }
 
-    fun closeAddAdHocDialog() {
-        _isAddAdHocDialogOpen.value = false
+    fun closeRecordDialog() {
+        _isRecordDialogOpen.value = false
+    }
+
+    fun markAllScheduledPresent() {
+        viewModelScope.launch {
+            val date = _selectedDate.value
+            val scheduled = uiState.value.scheduledTimetableSessions
+            val alreadyRecorded = uiState.value.selectedDateSessions.associateBy { it.timetableSessionId }
+
+            for (session in scheduled) {
+                // If not already recorded for this timetable session, record as PRESENT
+                if (!alreadyRecorded.containsKey(session.id)) {
+                    attendanceRepository.recordAttendance(
+                        subjectId = session.subjectId,
+                        date = date,
+                        status = AttendanceStatus.PRESENT,
+                        timetableSessionId = session.id,
+                        startMinute = session.startMinute,
+                        endMinute = session.endMinute,
+                        location = session.location,
+                        units = 1
+                    )
+                }
+            }
+        }
+    }
+
+    fun recordSelectedScheduledSessions(selections: List<Pair<TimetableSession, AttendanceStatus>>) {
+        viewModelScope.launch {
+            val date = _selectedDate.value
+            for ((session, status) in selections) {
+                attendanceRepository.recordAttendance(
+                    subjectId = session.subjectId,
+                    date = date,
+                    status = status,
+                    timetableSessionId = session.id,
+                    startMinute = session.startMinute,
+                    endMinute = session.endMinute,
+                    location = session.location,
+                    units = 1
+                )
+            }
+            closeRecordDialog()
+        }
     }
 
     fun addAdHocSession(subjectId: Long, status: AttendanceStatus) {
@@ -113,7 +163,7 @@ class CalendarViewModel @Inject constructor(
                 date = _selectedDate.value,
                 status = status
             )
-            closeAddAdHocDialog()
+            closeRecordDialog()
         }
     }
 

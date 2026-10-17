@@ -217,6 +217,45 @@ class AttendanceRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getArchivedSubjectDetails(): Flow<List<SubjectAttendanceDetail>> {
+        return combine(
+            subjectDao.getArchivedSubjects(),
+            classSessionDao.getAllClassSessions()
+        ) { archivedSubjects, allSessions ->
+            val sessionsBySubject = allSessions.groupBy { it.subjectId }
+
+            archivedSubjects.map { subjectEntity ->
+                val subject = subjectEntity.toDomain()
+                val sessions = sessionsBySubject[subject.id] ?: emptyList()
+
+                var presentUnits = subject.initialPresent
+                var absentUnits = subject.initialAbsent
+                var cancelledUnits = 0
+
+                for (s in sessions) {
+                    when (s.status) {
+                        AttendanceStatus.PRESENT.name -> presentUnits += s.attendanceUnits
+                        AttendanceStatus.ABSENT.name -> absentUnits += s.attendanceUnits
+                        AttendanceStatus.CANCELLED.name -> cancelledUnits += s.attendanceUnits
+                    }
+                }
+
+                val summary = AttendanceCalculator.calculateSummary(
+                    presentUnits = presentUnits,
+                    absentUnits = absentUnits,
+                    cancelledUnits = cancelledUnits,
+                    targetPercentage = subject.targetPercentage
+                )
+
+                SubjectAttendanceDetail(
+                    subject = subject,
+                    summary = summary,
+                    recentSessions = sessions.take(10).map { it.toDomain(subjectEntity) }
+                )
+            }
+        }
+    }
+
     override fun getSubjectDetail(subjectId: Long): Flow<SubjectAttendanceDetail?> {
         return combine(
             subjectDao.getSubjectByIdFlow(subjectId),

@@ -15,4 +15,5 @@ interface HolidayRepository {
     suspend fun deleteHoliday(id: Long)
     suspend fun deleteHolidayByDate(date: LocalDate)
     suspend fun clearAllHolidays()
+    suspend fun seedDefaultNationalHolidays(overwrite: Boolean = false)
 }

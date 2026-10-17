@@ -1,6 +1,7 @@
 package com.hrshd1eux.attendly.data.repository
 
 import com.hrshd1eux.attendly.data.local.dao.SubjectDao
+import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao
 import com.hrshd1eux.attendly.data.local.entity.SubjectEntity
 import com.hrshd1eux.attendly.domain.model.Subject
 import com.hrshd1eux.attendly.domain.repository.SubjectRepository
@@ -15,7 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class SubjectRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val subjectDao: SubjectDao
+    private val subjectDao: SubjectDao,
+    private val timetableDao: TimetableSessionDao
 ) : SubjectRepository {
 
     override fun getAllSubjects(): Flow<List<Subject>> {
@@ -51,6 +53,19 @@ class SubjectRepositoryImpl @Inject constructor(
 
     override suspend fun setArchivedStatus(id: Long, isArchived: Boolean) {
         subjectDao.setArchivedStatus(id, isArchived)
+        WidgetUpdater.notifyDataChanged(context)
+    }
+
+    override suspend fun archiveAllActiveSubjects() {
+        subjectDao.archiveAllActiveSubjects()
+        WidgetUpdater.notifyDataChanged(context)
+    }
+
+    override suspend fun startNextSemester(clearTimetable: Boolean) {
+        subjectDao.archiveAllActiveSubjects()
+        if (clearTimetable) {
+            timetableDao.deleteAllSessions()
+        }
         WidgetUpdater.notifyDataChanged(context)
     }
 

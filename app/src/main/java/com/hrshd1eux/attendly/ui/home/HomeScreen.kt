@@ -387,6 +387,14 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
+
+        if (uiState.detectedBackup != null) {
+            com.hrshd1eux.attendly.ui.components.AutoRestoreDialog(
+                summary = uiState.detectedBackup!!,
+                onDismiss = viewModel::dismissDetectedBackup,
+                onConfirmRestore = viewModel::restoreDetectedBackup
+            )
+        }
     }
 }
 

@@ -32,7 +32,8 @@ data class UserPreferences(
     val lastBackupTimestamp: Long = 0L,
     val leaveDate: String = "",
     val leaveType: String = "CANCELLED",
-    val notificationsEnabled: Boolean = true
+    val notificationsEnabled: Boolean = true,
+    val autoRestorePromptDismissed: Boolean = false
 ) {
     val isOnLeaveToday: Boolean
         get() = leaveDate == java.time.LocalDate.now().toString()
@@ -56,6 +57,7 @@ class PreferencesManager @Inject constructor(
         val LEAVE_DATE = stringPreferencesKey("leave_date")
         val LEAVE_TYPE = stringPreferencesKey("leave_type")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val AUTO_RESTORE_PROMPT_DISMISSED = booleanPreferencesKey("auto_restore_prompt_dismissed")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = dataStore.data.map { preferences ->
@@ -70,6 +72,7 @@ class PreferencesManager @Inject constructor(
         val leaveDate = preferences[PreferencesKeys.LEAVE_DATE] ?: ""
         val leaveType = preferences[PreferencesKeys.LEAVE_TYPE] ?: "CANCELLED"
         val notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true
+        val autoRestoreDismissed = preferences[PreferencesKeys.AUTO_RESTORE_PROMPT_DISMISSED] ?: false
 
         UserPreferences(
             userName = userName,
@@ -82,7 +85,8 @@ class PreferencesManager @Inject constructor(
             lastBackupTimestamp = lastBackup,
             leaveDate = leaveDate,
             leaveType = leaveType,
-            notificationsEnabled = notificationsEnabled
+            notificationsEnabled = notificationsEnabled,
+            autoRestorePromptDismissed = autoRestoreDismissed
         )
     }
 
@@ -148,6 +152,12 @@ class PreferencesManager @Inject constructor(
     suspend fun setNotificationsEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setAutoRestorePromptDismissed(dismissed: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_RESTORE_PROMPT_DISMISSED] = dismissed
         }
     }
 }

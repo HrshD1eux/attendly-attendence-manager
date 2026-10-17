@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.ChevronRight
@@ -275,6 +276,12 @@ fun SettingsScreen(
                             title = "Academic Holidays & AI Prompt",
                             subtitle = "Import university calendar, dates & manage holidays",
                             onClick = onNavigateToHolidays
+                        )
+                        SettingsRowItem(
+                            icon = Icons.Default.AutoStories,
+                            title = "Start Next Semester",
+                            subtitle = "Archive current subjects to past semesters & reset timetable",
+                            onClick = viewModel::openStartSemesterDialog
                         )
                     }
                 }
@@ -668,6 +675,16 @@ fun SettingsScreen(
                         Text("Close")
                     }
                 }
+            )
+        }
+
+        // Start Next Semester Dialog
+        val isStartSemesterDialogOpen by viewModel.isStartSemesterDialogOpen.collectAsState()
+        if (isStartSemesterDialogOpen) {
+            com.hrshd1eux.attendly.ui.subjects.StartNextSemesterDialog(
+                activeSubjectCount = 0,
+                onDismiss = viewModel::closeStartSemesterDialog,
+                onConfirm = viewModel::startNextSemester
             )
         }
     }

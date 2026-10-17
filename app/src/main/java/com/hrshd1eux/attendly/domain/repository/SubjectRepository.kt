@@ -12,5 +12,7 @@ interface SubjectRepository {
     suspend fun addSubject(subject: Subject): Long
     suspend fun updateSubject(subject: Subject)
     suspend fun setArchivedStatus(id: Long, isArchived: Boolean)
+    suspend fun archiveAllActiveSubjects()
+    suspend fun startNextSemester(clearTimetable: Boolean)
     suspend fun deleteSubject(id: Long)
 }

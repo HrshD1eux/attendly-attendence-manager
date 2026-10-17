@@ -48,6 +48,9 @@ interface SubjectDao {
     @Query("UPDATE subjects SET isArchived = :isArchived, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setArchivedStatus(id: Long, isArchived: Boolean, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("UPDATE subjects SET isArchived = 1, updatedAt = :updatedAt WHERE isArchived = 0")
+    suspend fun archiveAllActiveSubjects(updatedAt: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM subjects")
     suspend fun deleteAllSubjects()
 }
