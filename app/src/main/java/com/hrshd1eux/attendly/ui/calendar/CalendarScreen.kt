@@ -59,6 +59,7 @@ import com.hrshd1eux.attendly.core.model.AttendanceStatus
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.core.util.TimeUtils
 import com.hrshd1eux.attendly.domain.model.ClassSession
+import com.hrshd1eux.attendly.domain.model.Holiday
 import com.hrshd1eux.attendly.domain.model.Subject
 import com.hrshd1eux.attendly.ui.components.AttendanceStatusBadge
 import com.hrshd1eux.attendly.ui.components.AttendlyTopBar
@@ -153,8 +154,44 @@ fun CalendarScreen(
                             selectedDate = uiState.selectedDate,
                             firstDayOfWeek = uiState.firstDayOfWeek,
                             monthSessions = uiState.monthSessions,
+                            holidays = uiState.holidays,
                             onDateSelected = viewModel::selectDate
                         )
+                    }
+                }
+            }
+
+            // Holiday Banner for Selected Date (if it is a holiday)
+            if (uiState.selectedDateHoliday != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = statusColors.absentContainer.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🎉", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = uiState.selectedDateHoliday!!.name,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = statusColors.onAbsentContainer
+                                )
+                                Text(
+                                    text = "Academic / National Holiday",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = statusColors.onAbsentContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -283,11 +320,15 @@ private fun CalendarGrid(
     selectedDate: LocalDate,
     firstDayOfWeek: DayOfWeek,
     monthSessions: List<ClassSession>,
+    holidays: List<Holiday>,
     onDateSelected: (LocalDate) -> Unit
 ) {
     val statusColors = LocalStatusColors.current
     val firstOfMonth = yearMonth.atDay(1)
     val daysInMonth = yearMonth.lengthOfMonth()
+
+    // Map holidays by LocalDate
+    val holidaysByDate = remember(holidays) { holidays.associateBy { it.date } }
 
     // Determine leading empty cells
     val firstDayIso = firstOfMonth.dayOfWeek.value // Mon=1..Sun=7
@@ -301,6 +342,7 @@ private fun CalendarGrid(
     val numRows = (totalCells + 6) / 7
 
     val sessionsByDate = monthSessions.groupBy { it.date.dayOfMonth }
+    val redHolidayColor = statusColors.absent
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (row in 0 until numRows) {
@@ -313,6 +355,8 @@ private fun CalendarGrid(
                         val date = yearMonth.atDay(dayNum)
                         val isSelected = date == selectedDate
                         val isToday = date == LocalDate.now()
+                        val holiday = holidaysByDate[date]
+                        val isHoliday = holiday != null
                         val daySessions = sessionsByDate[dayNum] ?: emptyList()
 
                         val indicatorColor = when {
@@ -329,14 +373,26 @@ private fun CalendarGrid(
                                 .padding(2.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+                                    when {
+                                        isSelected -> MaterialTheme.colorScheme.primaryContainer
+                                        isHoliday -> statusColors.absentContainer.copy(alpha = 0.45f)
+                                        else -> androidx.compose.ui.graphics.Color.Transparent
+                                    }
                                 )
                                 .then(
-                                    if (isToday && !isSelected) Modifier.border(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.primary,
-                                        CircleShape
-                                    ) else Modifier
+                                    when {
+                                        isHoliday -> Modifier.border(
+                                            width = 1.8.dp,
+                                            color = redHolidayColor,
+                                            shape = CircleShape
+                                        )
+                                        isToday && !isSelected -> Modifier.border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = CircleShape
+                                        )
+                                        else -> Modifier
+                                    }
                                 )
                                 .clickable { onDateSelected(date) },
                             contentAlignment = Alignment.Center
@@ -345,18 +401,37 @@ private fun CalendarGrid(
                                 Text(
                                     text = dayNum.toString(),
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        fontWeight = if (isSelected || isToday || isHoliday) FontWeight.Bold else FontWeight.Normal,
+                                        color = when {
+                                            isSelected -> MaterialTheme.colorScheme.primary
+                                            isHoliday -> redHolidayColor
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        }
                                     )
                                 )
-                                if (indicatorColor != null) {
+                                if (indicatorColor != null || isHoliday) {
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(5.dp)
-                                            .clip(CircleShape)
-                                            .background(indicatorColor)
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (indicatorColor != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(indicatorColor)
+                                            )
+                                        }
+                                        if (isHoliday && indicatorColor == null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(redHolidayColor)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -364,6 +439,45 @@ private fun CalendarGrid(
                         Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Calendar Legend
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, redHolidayColor, CircleShape)
+                )
+                Text("Holiday", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(statusColors.present)
+                )
+                Text("Present", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(statusColors.absent)
+                )
+                Text("Absent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

@@ -6,9 +6,11 @@ import com.hrshd1eux.attendly.core.model.AttendanceStatus
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
 import com.hrshd1eux.attendly.domain.model.ClassSession
+import com.hrshd1eux.attendly.domain.model.Holiday
 import com.hrshd1eux.attendly.domain.model.Subject
 import com.hrshd1eux.attendly.domain.model.TimetableSession
 import com.hrshd1eux.attendly.domain.repository.AttendanceRepository
+import com.hrshd1eux.attendly.domain.repository.HolidayRepository
 import com.hrshd1eux.attendly.domain.repository.SubjectRepository
 import com.hrshd1eux.attendly.domain.repository.TimetableRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +34,9 @@ data class CalendarUiState(
     val scheduledTimetableSessions: List<TimetableSession> = emptyList(),
     val activeSubjects: List<Subject> = emptyList(),
     val firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
-    val isRecordDialogOpen: Boolean = false
+    val isRecordDialogOpen: Boolean = false,
+    val holidays: List<Holiday> = emptyList(),
+    val selectedDateHoliday: Holiday? = null
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -41,6 +45,7 @@ class CalendarViewModel @Inject constructor(
     private val attendanceRepository: AttendanceRepository,
     private val timetableRepository: TimetableRepository,
     private val subjectRepository: SubjectRepository,
+    private val holidayRepository: HolidayRepository,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
@@ -70,12 +75,16 @@ class CalendarViewModel @Inject constructor(
         combine(
             attendanceRepository.getSessionsBetweenDates(start, end),
             attendanceRepository.getSessionsForDate(baseState.selectedDate),
-            timetableRepository.getSessionsForDay(dayOfWeek)
-        ) { monthSessions, selectedDateSessions, scheduledSessions ->
+            timetableRepository.getSessionsForDay(dayOfWeek),
+            holidayRepository.getAllHolidays(),
+            holidayRepository.getHolidayForDate(baseState.selectedDate)
+        ) { monthSessions, selectedDateSessions, scheduledSessions, allHolidays, selectedHoliday ->
             baseState.copy(
                 monthSessions = monthSessions,
                 selectedDateSessions = selectedDateSessions,
-                scheduledTimetableSessions = scheduledSessions
+                scheduledTimetableSessions = scheduledSessions,
+                holidays = allHolidays,
+                selectedDateHoliday = selectedHoliday
             )
         }
     }.stateIn(
