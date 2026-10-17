@@ -68,6 +68,9 @@ fun TodayScheduleCard(
     onClearStatus: (TodayClassItem) -> Unit,
     onNavigateToTimetable: () -> Unit,
     modifier: Modifier = Modifier,
+    isTodayHoliday: Boolean = false,
+    todayHolidayName: String? = null,
+    onOpenHolidayDialog: (() -> Unit)? = null,
     onOpenLeaveDialog: (() -> Unit)? = null
 ) {
     val statusColors = LocalStatusColors.current
@@ -85,7 +88,7 @@ fun TodayScheduleCard(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            // Header: "Today's Schedule" and date + Leave button
+            // Header: "Today's Schedule" and date + Holiday & Leave buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -107,26 +110,72 @@ fun TodayScheduleCard(
                     )
                 }
 
-                if (onOpenLeaveDialog != null) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .clickable { onOpenLeaveDialog() }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "🏖️ On Leave?",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onOpenHolidayDialog != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isTodayHoliday) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                                .clickable { onOpenHolidayDialog() }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (isTodayHoliday) "🎉 Holiday!" else "🎉 Holiday?",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isTodayHoliday) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.primary
+                                )
                             )
-                        )
+                        }
+                    }
+
+                    if (onOpenLeaveDialog != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .clickable { onOpenLeaveDialog() }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "🏖️ On Leave?",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (isTodayHoliday) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "🎉 Academic Holiday: ${todayHolidayName ?: "Holiday"} (Classes are off)",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             if (items.isEmpty()) {
                 Box(

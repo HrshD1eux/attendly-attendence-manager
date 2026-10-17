@@ -11,6 +11,7 @@ sealed class Screen(val route: String) {
     }
     object Timetable : Screen("timetable")
     object ImportTimetable : Screen("import_timetable")
+    object Holidays : Screen("holidays")
     object BackupRestore : Screen("backup_restore")
     object About : Screen("about")
 }

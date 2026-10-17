@@ -6,6 +6,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.hrshd1eux.attendly.data.local.AttendlyDatabase
 import com.hrshd1eux.attendly.data.local.dao.ClassSessionDao
+import com.hrshd1eux.attendly.data.local.dao.HolidayDao
 import com.hrshd1eux.attendly.data.local.dao.SubjectDao
 import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao
 import dagger.Module
@@ -33,6 +34,7 @@ object DatabaseModule {
                 db.execSQL("PRAGMA foreign_keys=ON;")
             }
         })
+        .addMigrations(AttendlyDatabase.MIGRATION_1_2)
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
     }
@@ -50,5 +52,10 @@ object DatabaseModule {
     @Provides
     fun provideClassSessionDao(database: AttendlyDatabase): ClassSessionDao {
         return database.classSessionDao()
+    }
+
+    @Provides
+    fun provideHolidayDao(database: AttendlyDatabase): HolidayDao {
+        return database.holidayDao()
     }
 }

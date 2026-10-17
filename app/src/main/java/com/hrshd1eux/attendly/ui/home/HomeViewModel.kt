@@ -6,9 +6,11 @@ import com.hrshd1eux.attendly.core.model.AttendanceStatus
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
 import com.hrshd1eux.attendly.data.preferences.UserPreferences
 import com.hrshd1eux.attendly.domain.model.AttendanceSummary
+import com.hrshd1eux.attendly.domain.model.Holiday
 import com.hrshd1eux.attendly.domain.model.SubjectAttendanceDetail
 import com.hrshd1eux.attendly.domain.model.TodayClassItem
 import com.hrshd1eux.attendly.domain.repository.AttendanceRepository
+import com.hrshd1eux.attendly.domain.repository.HolidayRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +33,7 @@ data class HomeUiState(
     val activeClassPrompt: TodayClassItem? = null,
     val overallSummary: AttendanceSummary? = null,
     val subjectDetails: List<SubjectAttendanceDetail> = emptyList(),
+    val todayHoliday: Holiday? = null,
     val isLoading: Boolean = false
 )
 
@@ -45,6 +48,7 @@ sealed class HomeUiEvent {
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val attendanceRepository: AttendanceRepository,
+    private val holidayRepository: HolidayRepository,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
@@ -52,10 +56,11 @@ class HomeViewModel @Inject constructor(
         preferencesManager.userPreferencesFlow,
         attendanceRepository.getTodayClassesWithStatus(LocalDate.now()),
         attendanceRepository.getOverallAttendanceSummary(),
-        attendanceRepository.getSubjectDetails()
-    ) { prefs, todayClasses, overallSummary, subjectDetails ->
+        attendanceRepository.getSubjectDetails(),
+        holidayRepository.getHolidayForDate(LocalDate.now())
+    ) { prefs, todayClasses, overallSummary, subjectDetails, todayHoliday ->
         val currentMinute = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
-        val activePrompt = if (prefs.isOnLeaveToday) {
+        val activePrompt = if (prefs.isOnLeaveToday || todayHoliday != null) {
             null
         } else {
             // Pick ongoing or finished unmarked class, otherwise null
@@ -70,6 +75,7 @@ class HomeViewModel @Inject constructor(
             activeClassPrompt = activePrompt,
             overallSummary = overallSummary,
             subjectDetails = subjectDetails,
+            todayHoliday = todayHoliday,
             isLoading = false
         )
     }.stateIn(
@@ -205,6 +211,36 @@ class HomeViewModel @Inject constructor(
     fun cancelLeave() {
         viewModelScope.launch {
             preferencesManager.setOnLeaveToday(false, "")
+        }
+    }
+
+    fun declareHolidayToday(name: String, markClassesCancelled: Boolean) {
+        viewModelScope.launch {
+            val today = LocalDate.now()
+            holidayRepository.addHoliday(today, name)
+            if (markClassesCancelled) {
+                val currentClasses = uiState.value.todayClasses
+                for (item in currentClasses) {
+                    if (item.status == null) {
+                        attendanceRepository.recordAttendance(
+                            subjectId = item.subjectId,
+                            date = item.date,
+                            status = AttendanceStatus.CANCELLED,
+                            timetableSessionId = item.timetableSessionId,
+                            startMinute = item.startMinute,
+                            endMinute = item.endMinute,
+                            location = item.location,
+                            units = item.attendanceUnits
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun removeTodayHoliday() {
+        viewModelScope.launch {
+            holidayRepository.deleteHolidayByDate(LocalDate.now())
         }
     }
 }

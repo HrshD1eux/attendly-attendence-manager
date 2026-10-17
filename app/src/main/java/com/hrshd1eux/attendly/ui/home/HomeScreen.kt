@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hrshd1eux.attendly.core.model.AttendanceStatus
 import com.hrshd1eux.attendly.ui.components.DashboardStatRow
+import com.hrshd1eux.attendly.ui.components.DeclareHolidayDialog
+import com.hrshd1eux.attendly.ui.components.HolidayBanner
 import com.hrshd1eux.attendly.ui.components.LeaveConfirmationDialog
 import com.hrshd1eux.attendly.ui.components.OnLeaveBanner
 import com.hrshd1eux.attendly.ui.components.OverallAttendanceCard
@@ -68,11 +70,26 @@ fun HomeScreen(
     onNavigateToAddSubject: () -> Unit,
     onNavigateToTimetable: () -> Unit,
     onNavigateToCalendar: () -> Unit,
+    onNavigateToHolidays: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showLeaveDialog by remember { mutableStateOf(false) }
+    var showHolidayDialog by remember { mutableStateOf(false) }
+
+    if (showHolidayDialog) {
+        DeclareHolidayDialog(
+            currentDate = uiState.currentDate,
+            existingHoliday = uiState.todayHoliday,
+            onDismiss = { showHolidayDialog = false },
+            onConfirmHoliday = { name, markClassesCancelled ->
+                viewModel.declareHolidayToday(name, markClassesCancelled)
+            },
+            onRemoveHoliday = { viewModel.removeTodayHoliday() },
+            onOpenHolidayManager = onNavigateToHolidays
+        )
+    }
 
     if (showLeaveDialog) {
         LeaveConfirmationDialog(
@@ -202,8 +219,16 @@ fun HomeScreen(
                 }
             }
 
-            // Leave Banner or Smart Class Prompt
-            if (uiState.userPreferences.isOnLeaveToday) {
+            // Holiday Banner, Leave Banner, or Smart Class Prompt
+            if (uiState.todayHoliday != null) {
+                item {
+                    HolidayBanner(
+                        holidayName = uiState.todayHoliday!!.name,
+                        onManageHolidays = onNavigateToHolidays,
+                        onRemoveTodayHoliday = { viewModel.removeTodayHoliday() }
+                    )
+                }
+            } else if (uiState.userPreferences.isOnLeaveToday) {
                 item {
                     OnLeaveBanner(
                         onCancelLeave = { viewModel.cancelLeave() }
@@ -235,6 +260,9 @@ fun HomeScreen(
                         viewModel.clearClassStatus(item)
                     },
                     onNavigateToTimetable = onNavigateToTimetable,
+                    isTodayHoliday = uiState.todayHoliday != null,
+                    todayHolidayName = uiState.todayHoliday?.name,
+                    onOpenHolidayDialog = { showHolidayDialog = true },
                     onOpenLeaveDialog = { showLeaveDialog = true }
                 )
             }

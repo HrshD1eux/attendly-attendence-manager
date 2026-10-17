@@ -2,10 +2,12 @@ package com.hrshd1eux.attendly.di
 
 import com.hrshd1eux.attendly.data.repository.AttendanceRepositoryImpl
 import com.hrshd1eux.attendly.data.repository.BackupRestoreRepositoryImpl
+import com.hrshd1eux.attendly.data.repository.HolidayRepositoryImpl
 import com.hrshd1eux.attendly.data.repository.SubjectRepositoryImpl
 import com.hrshd1eux.attendly.data.repository.TimetableRepositoryImpl
 import com.hrshd1eux.attendly.domain.repository.AttendanceRepository
 import com.hrshd1eux.attendly.domain.repository.BackupRestoreRepository
+import com.hrshd1eux.attendly.domain.repository.HolidayRepository
 import com.hrshd1eux.attendly.domain.repository.SubjectRepository
 import com.hrshd1eux.attendly.domain.repository.TimetableRepository
 import dagger.Binds
@@ -33,4 +35,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBackupRestoreRepository(impl: BackupRestoreRepositoryImpl): BackupRestoreRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHolidayRepository(impl: HolidayRepositoryImpl): HolidayRepository
 }

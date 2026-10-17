@@ -21,6 +21,7 @@ import com.hrshd1eux.attendly.ui.settings.BackupRestoreScreen
 import com.hrshd1eux.attendly.ui.settings.SettingsScreen
 import com.hrshd1eux.attendly.ui.subjects.SubjectDetailScreen
 import com.hrshd1eux.attendly.ui.subjects.SubjectsScreen
+import com.hrshd1eux.attendly.ui.holidays.HolidaysScreen
 import com.hrshd1eux.attendly.ui.timetable.ImportTimetableScreen
 import com.hrshd1eux.attendly.ui.timetable.TimetableScreen
 
@@ -92,6 +93,9 @@ fun AttendlyAppNavigation(
                     },
                     onNavigateToCalendar = {
                         navController.navigate(Screen.Calendar.route)
+                    },
+                    onNavigateToHolidays = {
+                        navController.navigate(Screen.Holidays.route)
                     }
                 )
             }
@@ -137,6 +141,13 @@ fun AttendlyAppNavigation(
                 )
             }
 
+            // Holidays
+            composable(Screen.Holidays.route) {
+                HolidaysScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
             // Settings
             composable(Screen.Settings.route) {
                 SettingsScreen(
@@ -145,6 +156,9 @@ fun AttendlyAppNavigation(
                     },
                     onNavigateToImportTimetable = {
                         navController.navigate(Screen.ImportTimetable.route)
+                    },
+                    onNavigateToHolidays = {
+                        navController.navigate(Screen.Holidays.route)
                     },
                     onNavigateToBackupRestore = {
                         navController.navigate(Screen.BackupRestore.route)

@@ -147,6 +147,9 @@ class AttendanceNotificationReceiver : BroadcastReceiver() {
                     if (prefs.isOnLeaveToday || !prefs.notificationsEnabled) return@launch
 
                     val dateStr = LocalDate.now().toString()
+                    // Don't bother user on university holidays
+                    if (db.holidayDao().getHolidayForDateSync(dateStr) != null) return@launch
+
                     val existing = if (ttSessionId != 0L) {
                         db.classSessionDao().findSessionByTimetableAndDate(ttSessionId, dateStr)
                     } else {

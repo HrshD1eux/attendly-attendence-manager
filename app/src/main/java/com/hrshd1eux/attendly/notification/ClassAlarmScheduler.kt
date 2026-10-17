@@ -6,8 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.hrshd1eux.attendly.core.model.DayOfWeek
-import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao
+import com.hrshd1eux.attendly.data.local.dao.HolidayDao
 import com.hrshd1eux.attendly.data.local.dao.SubjectDao
+import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -20,6 +21,7 @@ import javax.inject.Singleton
 class ClassAlarmScheduler @Inject constructor(
     private val timetableDao: TimetableSessionDao,
     private val subjectDao: SubjectDao,
+    private val holidayDao: HolidayDao,
     private val preferencesManager: PreferencesManager
 ) {
 
@@ -27,9 +29,12 @@ class ClassAlarmScheduler @Inject constructor(
         val prefs = preferencesManager.userPreferencesFlow.first()
         if (prefs.isOnLeaveToday || !prefs.notificationsEnabled) return
 
+        val today = LocalDate.now()
+        // Do not schedule class alarms on university holidays
+        if (holidayDao.getHolidayForDateSync(today.toString()) != null) return
+
         AttendanceNotificationReceiver.createChannel(context)
 
-        val today = LocalDate.now()
         val dayOfWeek = DayOfWeek.fromJavaDayOfWeek(today.dayOfWeek)
         val sessions = timetableDao.getSessionsForDaySync(dayOfWeek.isoValue)
         val subjects = subjectDao.getActiveSubjects().first().associateBy { it.id }

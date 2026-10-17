@@ -4,9 +4,11 @@ import com.hrshd1eux.attendly.core.model.TimeFormat
 import com.hrshd1eux.attendly.core.util.TimeUtils
 import com.hrshd1eux.attendly.data.local.AttendlyDatabase
 import com.hrshd1eux.attendly.data.local.dao.ClassSessionDao
+import com.hrshd1eux.attendly.data.local.dao.HolidayDao
 import com.hrshd1eux.attendly.data.local.dao.SubjectDao
 import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao
 import com.hrshd1eux.attendly.data.local.entity.ClassSessionEntity
+import com.hrshd1eux.attendly.data.local.entity.HolidayEntity
 import com.hrshd1eux.attendly.data.local.entity.SubjectEntity
 import com.hrshd1eux.attendly.data.local.entity.TimetableSessionEntity
 import com.hrshd1eux.attendly.domain.repository.BackupRestoreRepository
@@ -27,7 +29,8 @@ class BackupRestoreRepositoryImpl @Inject constructor(
     private val database: AttendlyDatabase,
     private val subjectDao: SubjectDao,
     private val timetableDao: TimetableSessionDao,
-    private val classSessionDao: ClassSessionDao
+    private val classSessionDao: ClassSessionDao,
+    private val holidayDao: HolidayDao
 ) : BackupRestoreRepository {
 
     override suspend fun createBackupJson(): String {
@@ -163,6 +166,17 @@ class BackupRestoreRepositoryImpl @Inject constructor(
         }
         root.put("class_sessions", csJson)
 
+        val holidaysJson = JSONArray()
+        val allHolidays = holidayDao.getAllHolidaysSync()
+        for (h in allHolidays) {
+            val obj = JSONObject()
+            obj.put("date", h.date)
+            obj.put("name", h.name)
+            obj.put("createdAt", h.createdAt)
+            holidaysJson.put(obj)
+        }
+        root.put("holidays", holidaysJson)
+
         return root.toString(2)
     }
 
@@ -202,6 +216,7 @@ class BackupRestoreRepositoryImpl @Inject constructor(
                     classSessionDao.deleteAllSessions()
                     timetableDao.deleteAllSessions()
                     subjectDao.deleteAllSubjects()
+                    holidayDao.clearAllHolidays()
                 }
 
                 // Map old subjectId -> new subjectId
@@ -276,6 +291,25 @@ class BackupRestoreRepositoryImpl @Inject constructor(
                         updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
                     )
                     classSessionDao.insertSession(entity)
+                }
+
+                val holidaysArr = root.optJSONArray("holidays")
+                if (holidaysArr != null) {
+                    val hList = mutableListOf<HolidayEntity>()
+                    for (i in 0 until holidaysArr.length()) {
+                        val obj = holidaysArr.getJSONObject(i)
+                        hList.add(
+                            HolidayEntity(
+                                id = 0,
+                                date = obj.getString("date"),
+                                name = obj.getString("name"),
+                                createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                            )
+                        )
+                    }
+                    if (hList.isNotEmpty()) {
+                        holidayDao.insertHolidays(hList)
+                    }
                 }
             }
             WidgetUpdater.notifyDataChanged(context)

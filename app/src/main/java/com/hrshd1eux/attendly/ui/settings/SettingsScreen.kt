@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Edit
@@ -73,6 +74,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onNavigateToTimetable: () -> Unit,
     onNavigateToImportTimetable: () -> Unit,
+    onNavigateToHolidays: () -> Unit,
     onNavigateToBackupRestore: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -267,6 +269,12 @@ fun SettingsScreen(
                             title = "Import Timetable / AI Prompt",
                             subtitle = "Paste schedules or convert with AI prompt",
                             onClick = onNavigateToImportTimetable
+                        )
+                        SettingsRowItem(
+                            icon = Icons.Default.Celebration,
+                            title = "Academic Holidays & AI Prompt",
+                            subtitle = "Import university calendar, dates & manage holidays",
+                            onClick = onNavigateToHolidays
                         )
                     }
                 }
