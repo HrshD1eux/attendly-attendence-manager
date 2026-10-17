@@ -46,7 +46,7 @@ data class TimetableSessionEntity(
             dayOfWeek = DayOfWeek.fromIsoValue(dayOfWeek),
             startMinute = startMinute,
             endMinute = endMinute,
-            location = location.ifEmpty { subject?.location ?: "" },
+            location = location,
             attendanceUnitPolicy = try {
                 AttendanceUnitPolicy.valueOf(attendanceUnitPolicy)
             } catch (e: Exception) {

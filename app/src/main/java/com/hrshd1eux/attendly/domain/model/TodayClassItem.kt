@@ -16,5 +16,6 @@ data class TodayClassItem(
     val endMinute: Int,
     val location: String = "",
     val status: AttendanceStatus? = null, // null if unrecorded
-    val attendanceUnits: Int = 1
+    val attendanceUnits: Int = 1,
+    val notes: String = ""
 )

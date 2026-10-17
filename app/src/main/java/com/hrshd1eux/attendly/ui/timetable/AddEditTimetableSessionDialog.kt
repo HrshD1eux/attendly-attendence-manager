@@ -34,11 +34,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.app.TimePickerDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
 import com.hrshd1eux.attendly.core.model.AttendanceUnitPolicy
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.core.util.TimeUtils
 import com.hrshd1eux.attendly.domain.model.Subject
 import com.hrshd1eux.attendly.domain.model.TimetableSession
+import com.hrshd1eux.attendly.domain.parser.TimetableTextParser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,29 +67,45 @@ fun AddEditTimetableSessionDialog(
         notes: String
     ) -> Unit
 ) {
+    val context = LocalContext.current
+
     var selectedDay by remember { mutableStateOf(sessionToEdit?.dayOfWeek ?: defaultDay) }
     var selectedSubjectId by remember {
         mutableStateOf(sessionToEdit?.subjectId ?: subjects.firstOrNull()?.id ?: 0L)
     }
 
-    // Default start 9:00 (540), end 10:00 (600)
-    var startHour by remember { mutableIntStateOf((sessionToEdit?.startMinute ?: 540) / 60) }
-    var startMinute by remember { mutableIntStateOf((sessionToEdit?.startMinute ?: 540) % 60) }
-    var endHour by remember { mutableIntStateOf((sessionToEdit?.endMinute ?: 600) / 60) }
-    var endMinute by remember { mutableIntStateOf((sessionToEdit?.endMinute ?: 600) % 60) }
+    val initialStartMin = sessionToEdit?.startMinute ?: 540
+    val initialEndMin = sessionToEdit?.endMinute ?: 600
+
+    var startTimeText by remember {
+        mutableStateOf(String.format(java.util.Locale.US, "%02d:%02d", initialStartMin / 60, initialStartMin % 60))
+    }
+    var endTimeText by remember {
+        mutableStateOf(String.format(java.util.Locale.US, "%02d:%02d", initialEndMin / 60, initialEndMin % 60))
+    }
 
     var location by remember { mutableStateOf(sessionToEdit?.location ?: "") }
+    var teacher by remember {
+        mutableStateOf(
+            TimetableTextParser.extractTeacher(sessionToEdit?.notes ?: "")
+                ?: sessionToEdit?.notes?.takeIf { !it.startsWith("UNCERTAIN") }
+                ?: ""
+        )
+    }
     var unitPolicy by remember {
         mutableStateOf(sessionToEdit?.attendanceUnitPolicy ?: AttendanceUnitPolicy.ONE_PER_SESSION)
     }
-    var notes by remember { mutableStateOf(sessionToEdit?.notes ?: "") }
 
     var subjectExpanded by remember { mutableStateOf(false) }
     var dayExpanded by remember { mutableStateOf(false) }
 
-    val startTotal = startHour * 60 + startMinute
-    val endTotal = endHour * 60 + endMinute
-    val isTimeValid = endTotal > startTotal
+    val parsedStart = TimeUtils.parseTimeToMinutes(startTimeText)
+    val parsedEnd = TimeUtils.parseTimeToMinutes(endTimeText)
+
+    val isStartValid = parsedStart != null
+    val isEndValid = parsedEnd != null
+    val isTimeRangeValid = isStartValid && isEndValid && parsedEnd!! > parsedStart!!
+    val isFormValid = isTimeRangeValid && selectedSubjectId != 0L
 
     val scrollState = rememberScrollState()
 
@@ -170,44 +196,136 @@ fun AddEditTimetableSessionDialog(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedTextField(
-                        value = String.format("%02d:%02d", startHour, startMinute),
-                        onValueChange = { str ->
-                            TimeUtils.parseTimeToMinutes(str)?.let {
-                                startHour = it / 60
-                                startMinute = it % 60
-                            }
-                        },
+                        value = startTimeText,
+                        onValueChange = { startTimeText = it },
                         label = { Text("Start (HH:mm)") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        isError = !isStartValid && startTimeText.isNotBlank(),
+                        supportingText = if (!isStartValid && startTimeText.isNotBlank()) {
+                            { Text("Format: HH:mm (e.g. 09:30)") }
+                        } else null,
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    val h = parsedStart?.div(60) ?: (initialStartMin / 60)
+                                    val m = parsedStart?.rem(60) ?: (initialStartMin % 60)
+                                    TimePickerDialog(
+                                        context,
+                                        { _, selectedH, selectedM ->
+                                            startTimeText = String.format(java.util.Locale.US, "%02d:%02d", selectedH, selectedM)
+                                        },
+                                        h,
+                                        m,
+                                        false
+                                    ).show()
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = "Pick start time",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     )
 
                     OutlinedTextField(
-                        value = String.format("%02d:%02d", endHour, endMinute),
-                        onValueChange = { str ->
-                            TimeUtils.parseTimeToMinutes(str)?.let {
-                                endHour = it / 60
-                                endMinute = it % 60
-                            }
-                        },
+                        value = endTimeText,
+                        onValueChange = { endTimeText = it },
                         label = { Text("End (HH:mm)") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
-                        isError = !isTimeValid,
-                        supportingText = if (!isTimeValid) { { Text("End must be after start") } } else null
+                        isError = (!isEndValid && endTimeText.isNotBlank()) || (isStartValid && isEndValid && !isTimeRangeValid),
+                        supportingText = if (!isEndValid && endTimeText.isNotBlank()) {
+                            { Text("Format: HH:mm (e.g. 10:30)") }
+                        } else if (isStartValid && isEndValid && !isTimeRangeValid) {
+                            { Text("End must be after start") }
+                        } else null,
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    val h = parsedEnd?.div(60) ?: (initialEndMin / 60)
+                                    val m = parsedEnd?.rem(60) ?: (initialEndMin % 60)
+                                    TimePickerDialog(
+                                        context,
+                                        { _, selectedH, selectedM ->
+                                            endTimeText = String.format(java.util.Locale.US, "%02d:%02d", selectedH, selectedM)
+                                        },
+                                        h,
+                                        m,
+                                        false
+                                    ).show()
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = "Pick end time",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     )
                 }
 
+                // Classroom / Location with clear button
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
                     label = { Text("Classroom / Location") },
-                    placeholder = { Text("Room 101 or Lab 3") },
+                    placeholder = { Text("Room 101, Lab 3, LH-2") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = if (location.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { location = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear location",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else null
+                )
+
+                // Teacher / Instructor with clear button
+                OutlinedTextField(
+                    value = teacher,
+                    onValueChange = { teacher = it },
+                    label = { Text("Teacher / Instructor (Optional)") },
+                    placeholder = { Text("e.g. Dr. Navdeep Mor or Prof. Pallavi") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = if (teacher.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { teacher = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear teacher",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else null
                 )
 
                 // Attendance unit counting policy (Section 12.2)
@@ -261,19 +379,19 @@ fun AddEditTimetableSessionDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (isTimeValid && selectedSubjectId != 0L) {
+                    if (isFormValid && parsedStart != null && parsedEnd != null) {
                         onSave(
                             selectedSubjectId,
                             selectedDay,
-                            startTotal,
-                            endTotal,
-                            location,
+                            parsedStart,
+                            parsedEnd,
+                            location.trim(),
                             unitPolicy,
-                            notes
+                            teacher.trim()
                         )
                     }
                 },
-                enabled = isTimeValid && selectedSubjectId != 0L,
+                enabled = isFormValid,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(if (sessionToEdit == null) "Add" else "Save")

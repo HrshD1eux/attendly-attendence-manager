@@ -129,8 +129,9 @@ class TimetableRepositoryImpl @Inject constructor(
                     val start = TimeUtils.minutesToTimeString(s.startMinute, com.hrshd1eux.attendly.core.model.TimeFormat.FORMAT_24H)
                     val end = TimeUtils.minutesToTimeString(s.endMinute, com.hrshd1eux.attendly.core.model.TimeFormat.FORMAT_24H)
                     val subjName = subj?.name ?: "Unknown"
-                    val loc = s.location.ifEmpty { subj?.location ?: "" }
-                    sb.appendLine("$start-$end | $subjName | $loc")
+                    val loc = s.location
+                    val notesPart = if (s.notes.isNotEmpty()) " | ${s.notes}" else ""
+                    sb.appendLine("$start-$end | $subjName | $loc$notesPart")
                 }
                 sb.appendLine()
             }

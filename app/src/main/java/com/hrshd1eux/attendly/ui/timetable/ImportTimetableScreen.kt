@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hrshd1eux.attendly.core.util.TimeUtils
+import com.hrshd1eux.attendly.domain.parser.TimetableTextParser
 import com.hrshd1eux.attendly.domain.parser.TimetableGroupDetector
 import com.hrshd1eux.attendly.ui.components.AttendlyTopBar
 import com.hrshd1eux.attendly.ui.theme.LocalStatusColors
@@ -448,8 +449,26 @@ fun ImportTimetableScreen(
                                         }
                                     }
                                 }
+                                val teacherDisplay = entry.teacher.ifEmpty {
+                                    TimetableTextParser.extractTeacher(entry.notes) ?: ""
+                                }
+                                val detailParts = mutableListOf<String>()
+                                detailParts.add("${TimeUtils.minutesToTimeString(entry.startMinute)} - ${TimeUtils.minutesToTimeString(entry.endMinute)}")
+                                if (entry.location.isNotEmpty()) {
+                                    detailParts.add(entry.location)
+                                }
+                                if (teacherDisplay.isNotEmpty()) {
+                                    val formattedTeacher = if (teacherDisplay.startsWith("Teacher:", ignoreCase = true) ||
+                                        teacherDisplay.startsWith("Instructor:", ignoreCase = true) ||
+                                        teacherDisplay.startsWith("Guest:", ignoreCase = true)) {
+                                        teacherDisplay
+                                    } else {
+                                        "Teacher: $teacherDisplay"
+                                    }
+                                    detailParts.add(formattedTeacher)
+                                }
                                 Text(
-                                    text = "${TimeUtils.minutesToTimeString(entry.startMinute)} - ${TimeUtils.minutesToTimeString(entry.endMinute)}${if (entry.location.isNotEmpty()) " • ${entry.location}" else ""}",
+                                    text = detailParts.joinToString(" • "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

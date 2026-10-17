@@ -158,5 +158,42 @@ class TimetableTextParserTest {
         // Check Wednesday for G3: 2 common + 2 G3 (OOPS LAB G-3 and DSA LAB G-3) = 4 sessions
         val wedG3Entries = g3Result.entries.filter { it.dayOfWeek == DayOfWeek.WEDNESDAY }
         assertEquals(4, wedG3Entries.size)
+
+        // Check teacher extraction on Thursday & Friday
+        val thuCoa = result.entries.first { it.dayOfWeek == DayOfWeek.THURSDAY && it.startMinute == 840 }
+        assertEquals("Guest: Pallavi", thuCoa.teacher)
+
+        val thuHvpd = result.entries.first { it.dayOfWeek == DayOfWeek.THURSDAY && it.startMinute == 900 }
+        assertEquals("Dr. Navdeep Mor", thuHvpd.teacher)
+    }
+
+    @Test
+    fun testTeacherExtractionFromPipeAndComments() {
+        val input = """
+            DAY: MONDAY
+            09:00-10:00 | Mathematics | Room 101 | Prof. Navdeep Mor
+            10:00-11:00 | Physics | Dr. H. C. Verma | Lab 1
+            11:00-12:00 | Chemistry | COMMENT: Teacher: Dr. Smith
+            12:00-13:00 | English | Room 204
+        """.trimIndent()
+
+        val result = TimetableTextParser.parse(input)
+        assertEquals(4, result.entries.size)
+
+        val math = result.entries[0]
+        assertEquals("Room 101", math.location)
+        assertEquals("Prof. Navdeep Mor", math.teacher)
+
+        val phys = result.entries[1]
+        assertEquals("Lab 1", phys.location)
+        assertEquals("Dr. H. C. Verma", phys.teacher)
+
+        val chem = result.entries[2]
+        assertEquals("", chem.location)
+        assertEquals("Dr. Smith", chem.teacher)
+
+        val eng = result.entries[3]
+        assertEquals("Room 204", eng.location)
+        assertEquals("", eng.teacher)
     }
 }

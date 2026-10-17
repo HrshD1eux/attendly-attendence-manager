@@ -79,9 +79,10 @@ class AttendanceRepositoryImpl @Inject constructor(
                         date = date,
                         startMinute = tt.startMinute,
                         endMinute = tt.endMinute,
-                        location = tt.location.ifEmpty { subject.location },
+                        location = tt.location,
                         status = status,
-                        attendanceUnits = recorded?.attendanceUnits ?: 1
+                        attendanceUnits = recorded?.attendanceUnits ?: 1,
+                        notes = tt.notes
                     )
                 )
             }
@@ -105,9 +106,10 @@ class AttendanceRepositoryImpl @Inject constructor(
                         date = date,
                         startMinute = cs.startMinute,
                         endMinute = cs.endMinute,
-                        location = cs.location.ifEmpty { subject.location },
+                        location = cs.location,
                         status = status,
-                        attendanceUnits = cs.attendanceUnits
+                        attendanceUnits = cs.attendanceUnits,
+                        notes = cs.notes
                     )
                 )
             }

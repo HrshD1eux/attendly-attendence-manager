@@ -210,8 +210,53 @@ object TimetableTextParser {
         val subjectName = if (parts.size > 1) parts[1].trim() else ""
         if (subjectName.isEmpty()) return null
 
-        val location = if (parts.size > 2) parts[2].trim() else ""
-        val notes = if (parts.size > 3) parts[3].trim() else (extractedComment ?: "")
+        var rawLocation = ""
+        var rawNotes = extractedComment ?: ""
+        var extractedTeacher: String? = extractTeacher(extractedComment)
+
+        if (parts.size == 3) {
+            val part2 = parts[2].trim()
+            val teacherInPart = extractTeacher(part2)
+            if (teacherInPart != null && !isLocationToken(part2)) {
+                extractedTeacher = teacherInPart
+                rawNotes = if (rawNotes.isNotEmpty()) "$teacherInPart; $rawNotes" else teacherInPart
+            } else if (isLocationToken(part2) || (!isTeacherToken(part2) && !part2.contains("not specified", ignoreCase = true))) {
+                rawLocation = part2
+            }
+        } else if (parts.size >= 4) {
+            val part2 = parts[2].trim()
+            val part3 = parts[3].trim()
+
+            if (isLocationToken(part3) && (isTeacherToken(part2) || !isLocationToken(part2))) {
+                rawLocation = part3
+                val t = extractTeacher(part2) ?: part2
+                extractedTeacher = t
+                rawNotes = if (rawNotes.isNotEmpty()) "$t; $rawNotes" else t
+            } else {
+                rawLocation = if (isLocationToken(part2) || !isTeacherToken(part2)) part2 else ""
+                val t = extractTeacher(part3) ?: if (!isLocationToken(part3)) part3 else null
+                if (t != null) {
+                    extractedTeacher = t
+                    rawNotes = if (rawNotes.isNotEmpty()) "$t; $rawNotes" else t
+                }
+            }
+        }
+
+        // Clean location if it contains placeholder or uncertain text
+        val location = if (rawLocation.contains("not specified", ignoreCase = true) ||
+            rawLocation.contains("uncertain", ignoreCase = true) ||
+            rawLocation.contains("unknown", ignoreCase = true)) {
+            ""
+        } else {
+            rawLocation
+        }
+
+        val teacherFinal = extractedTeacher ?: extractTeacher(rawNotes) ?: ""
+        val notesFinal = if (teacherFinal.isNotEmpty() && (rawNotes.isBlank() || rawNotes.contains("UNCERTAIN", ignoreCase = true))) {
+            teacherFinal
+        } else {
+            rawNotes
+        }
 
         val detectedGroup = TimetableGroupDetector.extractGroup(subjectName)
             ?: TimetableGroupDetector.extractGroup(location)
@@ -223,8 +268,9 @@ object TimetableTextParser {
             endMinute = endMin,
             subjectName = subjectName,
             location = location,
-            notes = notes,
-            group = detectedGroup
+            notes = notesFinal,
+            group = detectedGroup,
+            teacher = teacherFinal
         )
 
         val warningMsg = if (warning != null) "$subjectName: $warning" else null
@@ -234,5 +280,59 @@ object TimetableTextParser {
             warning = warningMsg,
             comment = extractedComment
         )
+    }
+
+    /**
+     * Extracts teacher or instructor name from notes or timetable comments.
+     * e.g. "Guest instructor Pallavi", "Instructor Dr. Navdeep Mor", "Teacher: Dr. Smith", "Prof. Sharma"
+     */
+    fun extractTeacher(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        val clean = text.trim()
+
+        // 1. Matches phrases like:
+        // "Guest instructor Pallavi", "Instructor Dr. Navdeep Mor", "Teacher: Dr. Smith", "Faculty: Er. Rohit"
+        val prefixPattern = Regex(
+            """(?i)(?:guest\s+instructor|instructor|teacher|faculty)\s*[:\-–]?\s*([A-Za-z0-9.\s]+?)(?=\s*[;,|]|\s*[-–]\s*(?:room|location)|\s+(?:room|location)\b|\.\s*$|$)"""
+        )
+        prefixPattern.find(clean)?.let { match ->
+            val candidate = match.groupValues[1].trim().trimEnd('.')
+            if (candidate.isNotEmpty() && !candidate.equals("UNCERTAIN", ignoreCase = true)) {
+                val isGuest = clean.contains("guest", ignoreCase = true)
+                return if (isGuest && !candidate.contains("guest", ignoreCase = true)) {
+                    "Guest: $candidate"
+                } else {
+                    candidate
+                }
+            }
+        }
+
+        // 2. Matches titles: "Dr. Navdeep Mor", "Prof. Sharma", "Dr. H. C. Verma", "Er. Rohit", "Mr. Smith", etc.
+        val titlePattern = Regex(
+            """(?i)\b(?:Dr\.|Prof\.|Professor|Er\.|Mr\.|Ms\.|Mrs\.)\s+[A-Za-z0-9.\s]+?(?=\s*[;,|]|\s*[-–]\s*(?:room|location)|\s+(?:room|location)\b|\.\s*$|$)"""
+        )
+        titlePattern.find(clean)?.let { match ->
+            val candidate = match.value.trim().trimEnd('.')
+            if (candidate.isNotEmpty()) {
+                return candidate
+            }
+        }
+
+        return null
+    }
+
+    fun isLocationToken(token: String): Boolean {
+        val trimmed = token.trim()
+        if (trimmed.isEmpty()) return false
+        val lower = trimmed.lowercase()
+        if (lower.contains("not specified") || lower.contains("uncertain") || lower.contains("unknown") || lower.contains("tbd")) return false
+        if (Regex("""^(?:lab|lh|tb|room|r|c|lt|hall|block)[-–\s]?\d+.*""", RegexOption.IGNORE_CASE).matches(trimmed)) return true
+        if (Regex("""^\d{2,4}[A-Za-z]?$""").matches(trimmed)) return true
+        if (lower.contains("lab") || lower.contains("room") || lower.contains("hall") || lower.contains("floor") || lower.contains("building")) return true
+        return false
+    }
+
+    fun isTeacherToken(token: String): Boolean {
+        return extractTeacher(token) != null
     }
 }

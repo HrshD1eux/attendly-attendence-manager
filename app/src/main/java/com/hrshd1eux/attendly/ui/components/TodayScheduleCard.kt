@@ -22,8 +22,10 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Place
+import com.hrshd1eux.attendly.domain.parser.TimetableTextParser
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -318,6 +320,35 @@ private fun TimelineClassRow(
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
                                 text = item.location,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    val teacher = TimetableTextParser.extractTeacher(item.notes) ?: item.notes.takeIf { !it.startsWith("UNCERTAIN") }
+                    if (!teacher.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            val teacherText = if (teacher.startsWith("Teacher:", ignoreCase = true) ||
+                                teacher.startsWith("Instructor:", ignoreCase = true) ||
+                                teacher.startsWith("Guest:", ignoreCase = true)) {
+                                teacher
+                            } else {
+                                "Teacher: $teacher"
+                            }
+                            Text(
+                                text = teacherText,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,

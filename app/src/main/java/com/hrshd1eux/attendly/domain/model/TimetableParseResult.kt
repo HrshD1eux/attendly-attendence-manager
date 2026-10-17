@@ -13,7 +13,8 @@ data class ParsedTimetableEntry(
     val notes: String = "",
     val hasConflict: Boolean = false,
     val conflictReason: String? = null,
-    val group: String? = null
+    val group: String? = null,
+    val teacher: String = ""
 )
 
 data class TimetableParseResult(
