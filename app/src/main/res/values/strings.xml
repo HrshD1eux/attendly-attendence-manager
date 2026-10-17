@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Attendly - Attendence Manager</string>
+    <string name="widget_compact_title">Attendly Overview</string>
+    <string name="widget_compact_description">View your overall attendance percentage and status at a glance.</string>
+    <string name="widget_quick_title">Attendly Quick Mark</string>
+    <string name="widget_quick_description">Quickly mark attendance for a subject right from your home screen.</string>
+</resources>

@@ -1,0 +1,212 @@
+name: Release & Publish APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version Bump Type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - none
+      draft:
+        description: 'Create as Draft Release'
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: 'Mark as Pre-release'
+        required: false
+        default: false
+        type: boolean
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build, Sign & Release Attendly
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant Execute Permissions
+        run: |
+          chmod +x gradlew
+          chmod +x .github/scripts/*.sh
+
+      - name: Determine Version & Tag
+        id: versioning
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+            echo "Building from existing git tag: ${TAG}"
+            echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "version_name=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "should_commit=false" >> "$GITHUB_OUTPUT"
+          else
+            BUMP_TYPE="${{ inputs.bump_type || 'patch' }}"
+            echo "Running version bump with type: ${BUMP_TYPE}"
+            .github/scripts/bump-version.sh "${BUMP_TYPE}"
+            
+            # Read outputs exported by bump-version.sh
+            source "$GITHUB_OUTPUT" || true
+            TAG="v${version_name}"
+            echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "version_name=${version_name}" >> "$GITHUB_OUTPUT"
+            if [ "$BUMP_TYPE" != "none" ]; then
+              echo "should_commit=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "should_commit=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Commit & Push Version Bump
+        if: steps.versioning.outputs.should_commit == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "chore(release): bump version to ${{ steps.versioning.outputs.tag_name }} [skip ci]"
+          git tag -a "${{ steps.versioning.outputs.tag_name }}" -m "Release ${{ steps.versioning.outputs.tag_name }}"
+          git push origin HEAD:${{ github.ref_name }} --tags
+
+      - name: Generate Dynamic Release Notes
+        run: |
+          .github/scripts/generate-release-notes.sh "${{ steps.versioning.outputs.tag_name }}" release_notes.md
+          cat release_notes.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build Release APK and App Bundle
+        run: ./gradlew assembleRelease bundleRelease --stacktrace
+
+      - name: Setup Android Build Tools & Apksigner
+        id: build-tools
+        run: |
+          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          echo "Using Android Build Tools at: $BUILD_TOOLS_DIR"
+          echo "apksigner_path=$BUILD_TOOLS_DIR/apksigner" >> "$GITHUB_OUTPUT"
+          echo "zipalign_path=$BUILD_TOOLS_DIR/zipalign" >> "$GITHUB_OUTPUT"
+
+      - name: Sign APK and AAB
+        id: sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          APKSIGNER: ${{ steps.build-tools.outputs.apksigner_path }}
+          ZIPALIGN: ${{ steps.build-tools.outputs.zipalign_path }}
+          TAG_NAME: ${{ steps.versioning.outputs.tag_name }}
+        run: |
+          # Setup Keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Using provided repository secret release keystore."
+            echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+            KS_PASS="$KEYSTORE_PASSWORD"
+            K_ALIAS="$KEY_ALIAS"
+            K_PASS="$KEY_PASSWORD"
+          else
+            echo "::warning ::No KEYSTORE_BASE64 secret provided. Creating an automated release keystore for this build."
+            keytool -genkey -v -keystore release.keystore \
+              -alias attendly_key \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "attendly_release_pwd" \
+              -keypass "attendly_release_pwd" \
+              -dname "CN=Attendly Release, OU=Android, O=Attendly, C=US"
+            KS_PASS="attendly_release_pwd"
+            K_ALIAS="attendly_key"
+            K_PASS="attendly_release_pwd"
+          fi
+
+          # 1. Sign APK
+          RAW_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$RAW_APK" ]; then
+            echo "Error: No release APK found!"
+            exit 1
+          fi
+
+          echo "Found release APK: $RAW_APK"
+          "$ZIPALIGN" -v -p -f 4 "$RAW_APK" aligned_release.apk
+
+          APK_OUTPUT="Attendly-${TAG_NAME}.apk"
+          "$APKSIGNER" sign \
+            --ks release.keystore \
+            --ks-key-alias "$K_ALIAS" \
+            --ks-pass "pass:$KS_PASS" \
+            --key-pass "pass:$K_PASS" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled true \
+            --out "$APK_OUTPUT" \
+            aligned_release.apk
+
+          echo "Verifying signed APK signature:"
+          "$APKSIGNER" verify --verbose "$APK_OUTPUT"
+
+          # 2. Sign AAB (Android App Bundle)
+          RAW_AAB=$(find app/build/outputs/bundle/release -name "*.aab" 2>/dev/null | head -n 1 || echo "")
+          AAB_OUTPUT="Attendly-${TAG_NAME}.aab"
+          if [ -n "$RAW_AAB" ]; then
+            echo "Signing release AAB: $RAW_AAB"
+            cp "$RAW_AAB" "$AAB_OUTPUT"
+            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+              -keystore release.keystore \
+              -storepass "$KS_PASS" \
+              -keypass "$K_PASS" \
+              "$AAB_OUTPUT" "$K_ALIAS"
+          fi
+
+          # 3. Clean up Keystore
+          rm -f release.keystore aligned_release.apk
+
+      - name: Generate Checksums
+        run: |
+          sha256sum Attendly-${{ steps.versioning.outputs.tag_name }}.* > checksums.txt
+          echo "### 🔒 Package SHA-256 Checksums" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat checksums.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.versioning.outputs.tag_name }}
+          name: Attendly ${{ steps.versioning.outputs.tag_name }}
+          body_path: release_notes.md
+          draft: ${{ inputs.draft || false }}
+          prerelease: ${{ inputs.prerelease || false }}
+          files: |
+            Attendly-${{ steps.versioning.outputs.tag_name }}.apk
+            Attendly-${{ steps.versioning.outputs.tag_name }}.aab
+            checksums.txt
