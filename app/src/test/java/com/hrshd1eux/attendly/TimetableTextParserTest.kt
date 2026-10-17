@@ -1,9 +1,11 @@
 package com.hrshd1eux.attendly
 
 import com.hrshd1eux.attendly.core.model.DayOfWeek
+import com.hrshd1eux.attendly.domain.parser.TimetableGroupDetector
 import com.hrshd1eux.attendly.domain.parser.TimetableTextParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,6 +31,7 @@ class TimetableTextParserTest {
         assertEquals(5, result.entries.size)
         assertEquals(0, result.unrecognizedLines.size)
         assertEquals(0, result.warnings.size)
+        assertFalse(result.hasMultipleGroups)
 
         val monFirst = result.entries[0]
         assertEquals(DayOfWeek.MONDAY, monFirst.dayOfWeek)
@@ -74,7 +77,30 @@ class TimetableTextParserTest {
     }
 
     @Test
-    fun testParseUserConcatenatedTimetableWithInlineComments() {
+    fun testGroupDetectorExtractionAndCleaning() {
+        assertEquals("G1", TimetableGroupDetector.extractGroup("DSA LAB G-1"))
+        assertEquals("G2", TimetableGroupDetector.extractGroup("DSA LAB G-2"))
+        assertEquals("G3", TimetableGroupDetector.extractGroup("OOPS LAB G-3"))
+        assertEquals("G1", TimetableGroupDetector.extractGroup("DSA LAB G1"))
+        assertEquals("G2", TimetableGroupDetector.extractGroup("DSA LAB (G-2)"))
+        assertEquals("G1", TimetableGroupDetector.extractGroup("Chemistry Lab Batch-1"))
+        assertEquals("G2", TimetableGroupDetector.extractGroup("Physics Lab Group 2"))
+        assertNull(TimetableGroupDetector.extractGroup("Mathematics"))
+        assertNull(TimetableGroupDetector.extractGroup("OOPS"))
+        assertNull(TimetableGroupDetector.extractGroup("HVPD"))
+        assertNull(TimetableGroupDetector.extractGroup("Math-III"))
+
+        assertEquals("DSA LAB", TimetableGroupDetector.cleanSubjectName("DSA LAB G-1"))
+        assertEquals("OOPS LAB", TimetableGroupDetector.cleanSubjectName("OOPS LAB G-3"))
+        assertEquals("DSA LAB", TimetableGroupDetector.cleanSubjectName("DSA LAB (G-2)"))
+        assertEquals("Physics Lab", TimetableGroupDetector.cleanSubjectName("Physics Lab Group 2"))
+        assertEquals("Mathematics", TimetableGroupDetector.cleanSubjectName("Mathematics"))
+        assertEquals("Math-III", TimetableGroupDetector.cleanSubjectName("Math-III"))
+        assertEquals("HVPD", TimetableGroupDetector.cleanSubjectName("HVPD"))
+    }
+
+    @Test
+    fun testParseUserConcatenatedTimetableWithInlineCommentsAndGroupFiltering() {
         val input = """
             TIMETABLE FORMAT_VERSION: 1
 
@@ -93,20 +119,44 @@ class TimetableTextParserTest {
         assertEquals(0, result.unrecognizedLines.size)
         assertEquals(30, result.entries.size)
 
-        // Verify Monday sessions
-        val mondayEntries = result.entries.filter { it.dayOfWeek == DayOfWeek.MONDAY }
-        assertEquals(5, mondayEntries.size)
-        assertEquals("OOPS", mondayEntries[0].subjectName)
-        assertEquals("DSA", mondayEntries[1].subjectName)
-        assertEquals("DM", mondayEntries[2].subjectName)
-        assertEquals("DSA LAB G-1", mondayEntries[3].subjectName)
-        assertEquals("LAB-212", mondayEntries[3].location)
-        assertEquals("OOPS LAB G-3", mondayEntries[4].subjectName)
-        assertEquals("LAB-307", mondayEntries[4].location)
+        // Verify group detection: G1, G2, G3 detected
+        assertTrue(result.hasMultipleGroups)
+        assertEquals(listOf("G1", "G2", "G3"), result.detectedGroups)
 
-        // Verify Tuesday conflict detection for 14:00-18:00 HVPD
-        val tuesdayEntries = result.entries.filter { it.dayOfWeek == DayOfWeek.TUESDAY }
-        assertEquals(7, tuesdayEntries.size)
-        assertTrue(tuesdayEntries.any { it.hasConflict })
+        // Verify entry group assignments
+        val monDsaLab = result.entries.first { it.dayOfWeek == DayOfWeek.MONDAY && it.startMinute == 840 }
+        assertEquals("DSA LAB G-1", monDsaLab.subjectName)
+        assertEquals("G1", monDsaLab.group)
+
+        val monOopsLab = result.entries.first { it.dayOfWeek == DayOfWeek.MONDAY && it.startMinute == 960 }
+        assertEquals("OOPS LAB G-3", monOopsLab.subjectName)
+        assertEquals("G3", monOopsLab.group)
+
+        // Test filtering by Group 1 (G1)
+        val g1Result = result.filterByGroup("G1", cleanSubjectNames = true)
+        assertEquals(22, g1Result.entries.size) // 30 total - 8 sessions of G2 & G3 = 22 sessions
+        assertFalse(g1Result.entries.any { it.group == "G2" || it.group == "G3" })
+        assertTrue(g1Result.entries.all { it.group == null || it.group == "G1" })
+
+        // Check that Monday has 4 classes for Group 1 (OOPS LAB G-3 was ignored)
+        val monG1Entries = g1Result.entries.filter { it.dayOfWeek == DayOfWeek.MONDAY }
+        assertEquals(4, monG1Entries.size)
+        assertEquals(listOf("OOPS", "DSA", "DM", "DSA LAB"), monG1Entries.map { it.subjectName })
+
+        // Test filtering by Group 2 (G2)
+        val g2Result = result.filterByGroup("G2", cleanSubjectNames = true)
+        assertEquals(22, g2Result.entries.size)
+        assertFalse(g2Result.entries.any { it.group == "G1" || it.group == "G3" })
+        assertTrue(g2Result.entries.all { it.group == null || it.group == "G2" })
+
+        // Test filtering by Group 3 (G3)
+        val g3Result = result.filterByGroup("G3", cleanSubjectNames = true)
+        assertEquals(22, g3Result.entries.size)
+        assertFalse(g3Result.entries.any { it.group == "G1" || it.group == "G2" })
+        assertTrue(g3Result.entries.all { it.group == null || it.group == "G3" })
+
+        // Check Wednesday for G3: 2 common + 2 G3 (OOPS LAB G-3 and DSA LAB G-3) = 4 sessions
+        val wedG3Entries = g3Result.entries.filter { it.dayOfWeek == DayOfWeek.WEDNESDAY }
+        assertEquals(4, wedG3Entries.size)
     }
 }

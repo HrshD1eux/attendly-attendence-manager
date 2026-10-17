@@ -71,7 +71,26 @@ object TimetableTextParser {
         }
 
         // Post-process: Check for overlapping entries on each day
+        val (processedEntries, conflictWarnings) = checkConflicts(entries)
+        warnings.addAll(conflictWarnings)
+
+        val detectedGroups = entries.mapNotNull { it.group }.distinct().sorted()
+
+        return TimetableParseResult(
+            entries = processedEntries,
+            warnings = warnings.distinct(),
+            unrecognizedLines = unrecognizedLines,
+            comments = comments,
+            detectedGroups = detectedGroups
+        )
+    }
+
+    /**
+     * Checks for overlapping entries on each day and returns updated entries with conflict flags and warnings.
+     */
+    fun checkConflicts(entries: List<ParsedTimetableEntry>): Pair<List<ParsedTimetableEntry>, List<String>> {
         val processedEntries = mutableListOf<ParsedTimetableEntry>()
+        val warnings = mutableListOf<String>()
         val entriesByDay = entries.groupBy { it.dayOfWeek }
 
         for ((day, dayEntries) in entriesByDay) {
@@ -102,13 +121,7 @@ object TimetableTextParser {
                 )
             }
         }
-
-        return TimetableParseResult(
-            entries = processedEntries,
-            warnings = warnings,
-            unrecognizedLines = unrecognizedLines,
-            comments = comments
-        )
+        return Pair(processedEntries, warnings)
     }
 
     private fun preprocessTimetableText(raw: String): List<String> {
@@ -200,13 +213,18 @@ object TimetableTextParser {
         val location = if (parts.size > 2) parts[2].trim() else ""
         val notes = if (parts.size > 3) parts[3].trim() else (extractedComment ?: "")
 
+        val detectedGroup = TimetableGroupDetector.extractGroup(subjectName)
+            ?: TimetableGroupDetector.extractGroup(location)
+            ?: (if (extractedComment != null) TimetableGroupDetector.extractGroup(extractedComment) else null)
+
         val entry = ParsedTimetableEntry(
             dayOfWeek = day,
             startMinute = startMin,
             endMinute = endMin,
             subjectName = subjectName,
             location = location,
-            notes = notes
+            notes = notes,
+            group = detectedGroup
         )
 
         val warningMsg = if (warning != null) "$subjectName: $warning" else null

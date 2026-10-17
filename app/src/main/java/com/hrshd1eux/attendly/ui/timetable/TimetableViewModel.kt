@@ -30,8 +30,27 @@ data class TimetableUiState(
     val isAddEditDialogOpen: Boolean = false,
     val sessionToEdit: TimetableSession? = null,
     val isAiPromptDialogOpen: Boolean = false,
+    val rawParseResult: TimetableParseResult? = null,
     val parseResult: TimetableParseResult? = null,
+    val detectedGroups: List<String> = emptyList(),
+    val selectedGroup: String? = null,
+    val cleanSubjectNames: Boolean = true,
+    val isGroupSelectionDialogOpen: Boolean = false,
     val isImporting: Boolean = false
+) {
+    val ignoredSessionsCount: Int
+        get() {
+            val raw = rawParseResult?.entries?.size ?: 0
+            val filtered = parseResult?.entries?.size ?: 0
+            return (raw - filtered).coerceAtLeast(0)
+        }
+}
+
+private data class ImportParseState(
+    val rawParseResult: TimetableParseResult? = null,
+    val selectedGroup: String? = null,
+    val cleanSubjectNames: Boolean = true,
+    val isGroupSelectionDialogOpen: Boolean = false
 )
 
 @HiltViewModel
@@ -45,7 +64,11 @@ class TimetableViewModel @Inject constructor(
     private val _isAddEditDialogOpen = MutableStateFlow(false)
     private val _sessionToEdit = MutableStateFlow<TimetableSession?>(null)
     private val _isAiPromptDialogOpen = MutableStateFlow(false)
-    private val _parseResult = MutableStateFlow<TimetableParseResult?>(null)
+
+    private val _rawParseResult = MutableStateFlow<TimetableParseResult?>(null)
+    private val _selectedGroup = MutableStateFlow<String?>(null)
+    private val _cleanSubjectNames = MutableStateFlow(true)
+    private val _isGroupSelectionDialogOpen = MutableStateFlow(false)
 
     private val _dialogState = combine(
         _isAddEditDialogOpen,
@@ -55,13 +78,27 @@ class TimetableViewModel @Inject constructor(
         Triple(isAddEdit, sessionToEdit, isAiPrompt)
     }
 
+    private val _importState = combine(
+        _rawParseResult,
+        _selectedGroup,
+        _cleanSubjectNames,
+        _isGroupSelectionDialogOpen
+    ) { raw, group, clean, isDialogOpen ->
+        ImportParseState(raw, group, clean, isDialogOpen)
+    }
+
     val uiState: StateFlow<TimetableUiState> = combine(
         timetableRepository.getAllSessions(),
         subjectRepository.getActiveSubjects(),
         _selectedDay,
         _dialogState,
-        _parseResult
-    ) { sessions, subjects, day, (isAddEdit, sessionToEdit, isAiPrompt), parseResult ->
+        _importState
+    ) { sessions, subjects, day, (isAddEdit, sessionToEdit, isAiPrompt), importState ->
+        val filteredResult = importState.rawParseResult?.filterByGroup(
+            targetGroup = importState.selectedGroup,
+            cleanSubjectNames = importState.cleanSubjectNames
+        )
+
         TimetableUiState(
             selectedDay = day,
             sessionsForSelectedDay = sessions.filter { it.dayOfWeek == day }.sortedBy { it.startMinute },
@@ -70,7 +107,12 @@ class TimetableViewModel @Inject constructor(
             isAddEditDialogOpen = isAddEdit,
             sessionToEdit = sessionToEdit,
             isAiPromptDialogOpen = isAiPrompt,
-            parseResult = parseResult
+            rawParseResult = importState.rawParseResult,
+            parseResult = filteredResult,
+            detectedGroups = importState.rawParseResult?.detectedGroups ?: emptyList(),
+            selectedGroup = importState.selectedGroup,
+            cleanSubjectNames = importState.cleanSubjectNames,
+            isGroupSelectionDialogOpen = importState.isGroupSelectionDialogOpen
         )
     }.stateIn(
         scope = viewModelScope,
@@ -103,6 +145,22 @@ class TimetableViewModel @Inject constructor(
 
     fun closeAiPromptDialog() {
         _isAiPromptDialogOpen.value = false
+    }
+
+    fun selectGroupFilter(group: String?) {
+        _selectedGroup.value = group
+    }
+
+    fun toggleCleanSubjectNames(clean: Boolean) {
+        _cleanSubjectNames.value = clean
+    }
+
+    fun openGroupSelectionDialog() {
+        _isGroupSelectionDialogOpen.value = true
+    }
+
+    fun closeGroupSelectionDialog() {
+        _isGroupSelectionDialogOpen.value = false
     }
 
     fun saveSession(
@@ -159,17 +217,27 @@ class TimetableViewModel @Inject constructor(
 
     fun parseTimetableText(text: String) {
         val result = TimetableTextParser.parse(text)
-        _parseResult.value = result
+        _rawParseResult.value = result
+        if (result.hasMultipleGroups) {
+            _selectedGroup.value = result.detectedGroups.firstOrNull()
+            _isGroupSelectionDialogOpen.value = true
+        } else {
+            _selectedGroup.value = null
+            _isGroupSelectionDialogOpen.value = false
+        }
     }
 
     fun clearParseResult() {
-        _parseResult.value = null
+        _rawParseResult.value = null
+        _selectedGroup.value = null
+        _isGroupSelectionDialogOpen.value = false
     }
 
     fun applyImport(replaceExisting: Boolean, onComplete: () -> Unit) {
-        val result = _parseResult.value ?: return
+        val raw = _rawParseResult.value ?: return
+        val filtered = raw.filterByGroup(_selectedGroup.value, _cleanSubjectNames.value)
         viewModelScope.launch {
-            timetableRepository.importParsedTimetable(result.entries, replaceExisting)
+            timetableRepository.importParsedTimetable(filtered.entries, replaceExisting)
             clearParseResult()
             onComplete()
         }
