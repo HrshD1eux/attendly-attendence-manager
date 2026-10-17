@@ -140,3 +140,70 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+fun bumpVersion(type: String) {
+    val propsFile = rootProject.file("version.properties")
+    val props = Properties()
+    if (propsFile.exists()) {
+        propsFile.inputStream().use { props.load(it) }
+    }
+    var major = props.getProperty("versionMajor", "1").toInt()
+    var minor = props.getProperty("versionMinor", "0").toInt()
+    var patch = props.getProperty("versionPatch", "0").toInt()
+    var code = props.getProperty("versionCode", "1").toInt()
+
+    when (type.lowercase()) {
+        "major" -> {
+            major += 1
+            minor = 0
+            patch = 0
+            code += 1
+        }
+        "minor" -> {
+            minor += 1
+            patch = 0
+            code += 1
+        }
+        "patch" -> {
+            patch += 1
+            code += 1
+        }
+    }
+
+    val content = """
+        # Attendly Version Properties
+        # Managed automatically by CI/CD workflow and local development
+        versionMajor=$major
+        versionMinor=$minor
+        versionPatch=$patch
+        versionCode=$code
+    """.trimIndent() + "\n"
+
+    propsFile.writeText(content)
+    println("Version updated to v$major.$minor.$patch (versionCode: $code)")
+}
+
+tasks.register("bumpPatch") {
+    group = "versioning"
+    description = "Increments patch version and versionCode in version.properties"
+    doLast { bumpVersion("patch") }
+}
+
+tasks.register("bumpMinor") {
+    group = "versioning"
+    description = "Increments minor version and versionCode in version.properties"
+    doLast { bumpVersion("minor") }
+}
+
+tasks.register("bumpMajor") {
+    group = "versioning"
+    description = "Increments major version and versionCode in version.properties"
+    doLast { bumpVersion("major") }
+}
+
+tasks.register("bumpVersion") {
+    group = "versioning"
+    description = "Alias for bumpPatch"
+    dependsOn("bumpPatch")
+}
+

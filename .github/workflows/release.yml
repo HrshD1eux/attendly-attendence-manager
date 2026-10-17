@@ -24,15 +24,22 @@ on:
         default: false
         type: boolean
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
 
 permissions:
   contents: write
   packages: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-production
   cancel-in-progress: false
 
 jobs:
@@ -76,11 +83,18 @@ jobs:
             echo "Running version bump with type: ${BUMP_TYPE}"
             .github/scripts/bump-version.sh "${BUMP_TYPE}"
             
-            # Read outputs exported by bump-version.sh
-            source "$GITHUB_OUTPUT" || true
-            TAG="v${version_name}"
+            # Read fresh values directly from version.properties
+            MAJOR=$(grep "^versionMajor=" version.properties | cut -d'=' -f2)
+            MINOR=$(grep "^versionMinor=" version.properties | cut -d'=' -f2)
+            PATCH=$(grep "^versionPatch=" version.properties | cut -d'=' -f2)
+            CODE=$(grep "^versionCode=" version.properties | cut -d'=' -f2)
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            TAG="v${VERSION}"
+            
+            echo "Bumped to Version: ${VERSION} (Build ${CODE})"
             echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "version_name=${version_name}" >> "$GITHUB_OUTPUT"
+            echo "version_name=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "version_code=${CODE}" >> "$GITHUB_OUTPUT"
             if [ "$BUMP_TYPE" != "none" ]; then
               echo "should_commit=true" >> "$GITHUB_OUTPUT"
             else
@@ -95,8 +109,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add version.properties
           git commit -m "chore(release): bump version to ${{ steps.versioning.outputs.tag_name }} [skip ci]"
-          git tag -a "${{ steps.versioning.outputs.tag_name }}" -m "Release ${{ steps.versioning.outputs.tag_name }}"
-          git push origin HEAD:${{ github.ref_name }} --tags
+          git tag -a "${{ steps.versioning.outputs.tag_name }}" -m "Release ${{ steps.versioning.outputs.tag_name }}" -f
+          git push origin "HEAD:${{ github.ref_name || 'main' }}"
+          git push origin "${{ steps.versioning.outputs.tag_name }}" --force
 
       - name: Generate Dynamic Release Notes
         run: |
@@ -206,6 +221,7 @@ jobs:
           body_path: release_notes.md
           draft: ${{ inputs.draft || false }}
           prerelease: ${{ inputs.prerelease || false }}
+          fail_on_unmatched_files: false
           files: |
             Attendly-${{ steps.versioning.outputs.tag_name }}.apk
             Attendly-${{ steps.versioning.outputs.tag_name }}.aab
