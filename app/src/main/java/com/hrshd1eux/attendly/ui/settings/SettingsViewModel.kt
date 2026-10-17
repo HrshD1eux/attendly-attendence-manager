@@ -17,9 +17,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.content.Context
+import com.hrshd1eux.attendly.core.util.ApkInstaller
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
@@ -33,6 +39,16 @@ sealed class UpdateCheckState {
         val releaseNotes: String,
         val downloadUrl: String,
         val releasePageUrl: String
+    ) : UpdateCheckState()
+    data class Downloading(
+        val version: String,
+        val bytesDownloaded: Long,
+        val totalBytes: Long,
+        val progress: Float
+    ) : UpdateCheckState()
+    data class DownloadComplete(
+        val version: String,
+        val apkFile: File
     ) : UpdateCheckState()
     data class UpToDate(val version: String) : UpdateCheckState()
     data class Error(val message: String, val releasePageUrl: String) : UpdateCheckState()
@@ -239,7 +255,121 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private var downloadJob: Job? = null
+
+    fun downloadAndInstallUpdate(context: Context, downloadUrl: String, version: String) {
+        downloadJob?.cancel()
+        downloadJob = viewModelScope.launch(Dispatchers.IO) {
+            _updateCheckState.value = UpdateCheckState.Downloading(
+                version = version,
+                bytesDownloaded = 0L,
+                totalBytes = -1L,
+                progress = -1f
+            )
+
+            val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
+            val targetApkFile = File(updatesDir, "Attendly-v$version.apk")
+            val tempApkFile = File(updatesDir, "Attendly-v$version.apk.tmp")
+
+            try {
+                if (tempApkFile.exists()) tempApkFile.delete()
+
+                var currentUrl = downloadUrl
+                var connection: HttpURLConnection? = null
+                var redirects = 0
+                while (redirects < 5) {
+                    val url = URL(currentUrl)
+                    val conn = url.openConnection() as HttpURLConnection
+                    conn.instanceFollowRedirects = true
+                    conn.setRequestProperty("User-Agent", "Attendly-Android")
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 30000
+                    val code = conn.responseCode
+                    if (code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                        code == HttpURLConnection.HTTP_MOVED_PERM ||
+                        code == 307 || code == 308
+                    ) {
+                        val redirectUrl = conn.getHeaderField("Location")
+                        conn.disconnect()
+                        if (redirectUrl != null) {
+                            currentUrl = redirectUrl
+                            redirects++
+                            continue
+                        }
+                    }
+                    connection = conn
+                    break
+                }
+
+                val finalConn = connection ?: throw IllegalStateException("Could not establish connection to download update.")
+                val totalBytes = finalConn.contentLengthLong
+
+                finalConn.inputStream.use { input ->
+                    FileOutputStream(tempApkFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesDownloaded = 0L
+                        var bytesRead: Int
+                        var lastUiUpdate = 0L
+
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            bytesDownloaded += bytesRead
+
+                            val now = System.currentTimeMillis()
+                            if (now - lastUiUpdate > 100 || (totalBytes > 0 && bytesDownloaded == totalBytes)) {
+                                lastUiUpdate = now
+                                val progress = if (totalBytes > 0) {
+                                    (bytesDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                                } else {
+                                    -1f
+                                }
+                                _updateCheckState.value = UpdateCheckState.Downloading(
+                                    version = version,
+                                    bytesDownloaded = bytesDownloaded,
+                                    totalBytes = totalBytes,
+                                    progress = progress
+                                )
+                            }
+                        }
+                        output.flush()
+                    }
+                }
+                finalConn.disconnect()
+
+                if (tempApkFile.exists()) {
+                    if (targetApkFile.exists()) targetApkFile.delete()
+                    tempApkFile.renameTo(targetApkFile)
+                }
+
+                _updateCheckState.value = UpdateCheckState.DownloadComplete(
+                    version = version,
+                    apkFile = targetApkFile
+                )
+
+                // Prompt Android Package Installer immediately
+                ApkInstaller.installApk(context, targetApkFile)
+
+            } catch (e: CancellationException) {
+                if (tempApkFile.exists()) tempApkFile.delete()
+                _updateCheckState.value = UpdateCheckState.Idle
+                throw e
+            } catch (e: Exception) {
+                if (tempApkFile.exists()) tempApkFile.delete()
+                _updateCheckState.value = UpdateCheckState.Error(
+                    message = "Download failed: ${e.localizedMessage ?: "Network error"}",
+                    releasePageUrl = "https://github.com/HrshD1eux/attendly-attendence-manager/releases"
+                )
+            }
+        }
+    }
+
+    fun cancelDownload() {
+        downloadJob?.cancel()
+        _updateCheckState.value = UpdateCheckState.Idle
+    }
+
     fun dismissUpdateDialog() {
+        downloadJob?.cancel()
         _updateCheckState.value = UpdateCheckState.Idle
     }
 

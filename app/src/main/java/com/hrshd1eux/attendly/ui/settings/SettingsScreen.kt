@@ -5,6 +5,9 @@ import android.net.Uri
 import android.widget.Toast
 import com.hrshd1eux.attendly.BuildConfig
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.clip
+import com.hrshd1eux.attendly.core.util.ApkInstaller
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -456,12 +459,141 @@ fun SettingsScreen(
                     confirmButton = {
                         Button(
                             onClick = {
-                                viewModel.dismissUpdateDialog()
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(state.downloadUrl))
-                                context.startActivity(intent)
+                                viewModel.downloadAndInstallUpdate(
+                                    context = context,
+                                    downloadUrl = state.downloadUrl,
+                                    version = state.latestVersion
+                                )
                             }
                         ) {
-                            Text("Download APK")
+                            Text("Download & Install")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::dismissUpdateDialog) {
+                            Text("Later")
+                        }
+                    }
+                )
+            }
+            is UpdateCheckState.Downloading -> {
+                AlertDialog(
+                    onDismissRequest = { /* Keep active during download */ },
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text("Downloading Update")
+                        }
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Downloading Attendly v${state.version}...",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+
+                            if (state.progress >= 0f) {
+                                LinearProgressIndicator(
+                                    progress = { state.progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    val downloadedMb = String.format(
+                                        java.util.Locale.US,
+                                        "%.1f",
+                                        state.bytesDownloaded / (1024f * 1024f)
+                                    )
+                                    val totalMb = String.format(
+                                        java.util.Locale.US,
+                                        "%.1f",
+                                        state.totalBytes / (1024f * 1024f)
+                                    )
+                                    Text(
+                                        text = "$downloadedMb MB / $totalMb MB",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "${(state.progress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            } else {
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                )
+                                val downloadedMb = String.format(
+                                    java.util.Locale.US,
+                                    "%.1f",
+                                    state.bytesDownloaded / (1024f * 1024f)
+                                )
+                                Text(
+                                    text = "$downloadedMb MB downloaded",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = viewModel::cancelDownload) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+            is UpdateCheckState.DownloadComplete -> {
+                AlertDialog(
+                    onDismissRequest = viewModel::dismissUpdateDialog,
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text("Ready to Install! 🚀")
+                        }
+                    },
+                    text = {
+                        Text(
+                            text = "Attendly v${state.version} is downloaded and ready to install. Tap 'Install Now' to proceed."
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                ApkInstaller.installApk(context, state.apkFile)
+                            }
+                        ) {
+                            Text("Install Now")
                         }
                     },
                     dismissButton = {
