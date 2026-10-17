@@ -1,7 +1,10 @@
 package com.hrshd1eux.attendly.ui.settings
 
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import com.hrshd1eux.attendly.BuildConfig
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -73,6 +76,7 @@ fun SettingsScreen(
     val prefs by viewModel.uiState.collectAsState()
     val isEditNameOpen by viewModel.isEditNameDialogOpen.collectAsState()
     val isExplanationOpen by viewModel.isExplanationDialogOpen.collectAsState()
+    val updateState by viewModel.updateCheckState.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -296,22 +300,20 @@ fun SettingsScreen(
                         SettingsRowItem(
                             icon = Icons.Default.Info,
                             title = "About Attendly",
-                            subtitle = "Version 1.0.0 • Offline-first Attendance Tracker",
+                            subtitle = "Version ${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • Offline-first Attendance Tracker",
                             onClick = { showAboutDialog = true }
                         )
                         SettingsRowItem(
                             icon = Icons.Default.School,
                             title = "Privacy Policy",
-                            subtitle = "100% offline, zero tracking or network calls",
+                            subtitle = "100% offline, zero tracking or background telemetry",
                             onClick = { showPrivacyDialog = true }
                         )
                         SettingsRowItem(
                             icon = Icons.Default.SystemUpdate,
                             title = "Check for Updates",
-                            subtitle = "Attendly v1.0.0 (Up to date)",
-                            onClick = {
-                                Toast.makeText(context, "You are using the latest version of Attendly (v1.0.0).", Toast.LENGTH_SHORT).show()
-                            }
+                            subtitle = "Current: v${BuildConfig.VERSION_NAME} • Tap to check GitHub releases",
+                            onClick = { viewModel.checkForUpdates() }
                         )
                     }
                 }
@@ -388,10 +390,10 @@ fun SettingsScreen(
         if (showAboutDialog) {
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
-                title = { Text("Attendly v1.0.0") },
+                title = { Text("Attendly v${BuildConfig.VERSION_NAME}") },
                 text = {
                     Text(
-                        "Attendly is a native, modern, offline-first attendance tracking application built with Kotlin, Jetpack Compose, and Room.\n\nCrafted specifically for students to effortlessly monitor class attendance, calculate safe absences, and maintain academic goals."
+                        "Attendly is a native, modern, offline-first attendance tracking application built with Kotlin, Jetpack Compose, and Room.\n\nCrafted specifically for students to effortlessly monitor class attendance, calculate safe absences, and maintain academic goals.\n\nVersion: ${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})"
                     )
                 },
                 confirmButton = {
@@ -400,6 +402,115 @@ fun SettingsScreen(
                     }
                 }
             )
+        }
+
+        // Update Checking Dialogs
+        when (val state = updateState) {
+            is UpdateCheckState.Checking -> {
+                AlertDialog(
+                    onDismissRequest = { /* Don't dismiss while checking */ },
+                    title = { Text("Checking for Updates") },
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                            Text("Verifying with GitHub Releases...")
+                        }
+                    },
+                    confirmButton = {}
+                )
+            }
+            is UpdateCheckState.UpdateAvailable -> {
+                AlertDialog(
+                    onDismissRequest = viewModel::dismissUpdateDialog,
+                    title = { Text("Update Available! 🎉") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "A new version of Attendly is ready for download.",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Current: v${state.currentVersion} → Latest: v${state.latestVersion}",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (state.releaseNotes.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Release Notes:",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = state.releaseNotes.take(300) + if (state.releaseNotes.length > 300) "..." else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.dismissUpdateDialog()
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(state.downloadUrl))
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Text("Download APK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::dismissUpdateDialog) {
+                            Text("Later")
+                        }
+                    }
+                )
+            }
+            is UpdateCheckState.UpToDate -> {
+                AlertDialog(
+                    onDismissRequest = viewModel::dismissUpdateDialog,
+                    title = { Text("You're Up to Date! ✨") },
+                    text = {
+                        Text("Attendly v${state.version} is currently the latest version. No updates are required.")
+                    },
+                    confirmButton = {
+                        Button(onClick = viewModel::dismissUpdateDialog) {
+                            Text("Great")
+                        }
+                    }
+                )
+            }
+            is UpdateCheckState.Error -> {
+                AlertDialog(
+                    onDismissRequest = viewModel::dismissUpdateDialog,
+                    title = { Text("Update Check") },
+                    text = {
+                        Text("Could not reach GitHub Releases (${state.message}). You can manually check GitHub in your browser.")
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.dismissUpdateDialog()
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(state.releasePageUrl))
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Text("Open Releases")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::dismissUpdateDialog) {
+                            Text("Close")
+                        }
+                    }
+                )
+            }
+            UpdateCheckState.Idle -> { /* do nothing */ }
         }
 
         // Privacy Policy Dialog

@@ -15,9 +15,10 @@ object TimetableTextParser {
 
         var currentDay: DayOfWeek? = null
 
-        val lines = rawText.lines()
+        // 1. Pre-process raw text to split concatenated days and concatenated time slots
+        val normalizedLines = preprocessTimetableText(rawText)
 
-        for (rawLine in lines) {
+        for (rawLine in normalizedLines) {
             val line = rawLine.trim()
             if (line.isEmpty()) continue
 
@@ -27,9 +28,12 @@ object TimetableTextParser {
                 continue
             }
 
-            // Check comments
+            // Check pure comment lines
             if (line.startsWith("COMMENT:", ignoreCase = true) || line.startsWith("#") || line.startsWith("//")) {
-                comments.add(line)
+                val commentContent = line.removePrefix("COMMENT:").removePrefix("#").removePrefix("//").trim()
+                if (commentContent.isNotEmpty()) {
+                    comments.add(commentContent)
+                }
                 continue
             }
 
@@ -52,9 +56,15 @@ object TimetableTextParser {
                 continue
             }
 
-            val entry = parseLineEntry(line, currentDay)
-            if (entry != null) {
-                entries.add(entry)
+            val parseResult = parseLineEntry(line, currentDay)
+            if (parseResult != null) {
+                entries.add(parseResult.entry)
+                if (parseResult.warning != null) {
+                    warnings.add("${currentDay.displayName}: ${parseResult.warning}")
+                }
+                if (parseResult.comment != null) {
+                    comments.add(parseResult.comment)
+                }
             } else {
                 unrecognizedLines.add(line)
             }
@@ -71,7 +81,7 @@ object TimetableTextParser {
                 var hasOverlap = false
                 var conflictMsg: String? = null
 
-                // Check overlap with next entries
+                // Check overlap with other entries
                 for (j in sorted.indices) {
                     if (i == j) continue
                     val other = sorted[j]
@@ -101,15 +111,66 @@ object TimetableTextParser {
         )
     }
 
-    private fun parseLineEntry(line: String, day: DayOfWeek): ParsedTimetableEntry? {
+    private fun preprocessTimetableText(raw: String): List<String> {
+        var text = raw.replace("\r\n", "\n").replace("\r", "\n")
+
+        // 1. Separate DAY: <DAY_NAME> onto its own line when followed by entries on the same line
+        // e.g. "DAY: MONDAY 09:00-10:00 | OOPS" -> "\nDAY: MONDAY\n09:00-10:00 | OOPS"
+        val dayPattern = Regex("""(?i)\bDAY\s*:\s*(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|MON|TUE|WED|THU|FRI|SAT|SUN)\b""")
+        text = text.replace(dayPattern) { matchResult ->
+            "\nDAY: ${matchResult.groupValues[1]}\n"
+        }
+
+        // Also handle "MONDAY:", "TUESDAY:" when preceded by start of line or space
+        val colonDayPattern = Regex("""(?i)(?:^|\n)\s*(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)\s*:(?!\s*\d)""")
+        text = text.replace(colonDayPattern) { matchResult ->
+            "\nDAY: ${matchResult.groupValues[1]}\n"
+        }
+
+        // 2. Separate concatenated class sessions when time ranges appear mid-line:
+        // If the text uses pipes, look for a time range followed by a pipe '|'
+        // This avoids splitting inside comments that mention times (e.g. "spans 14:00-18:00, with...")
+        val inlineTimeRangePattern = if (text.contains("|")) {
+            Regex("""(?<=\S)\s+(?=\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s*\|)""")
+        } else {
+            Regex("""(?<=\S)\s+(?=\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s+[A-Za-z])""")
+        }
+        text = text.replace(inlineTimeRangePattern, "\n")
+
+        return text.lines()
+    }
+
+    private data class ParsedLineResult(
+        val entry: ParsedTimetableEntry,
+        val warning: String? = null,
+        val comment: String? = null
+    )
+
+    private fun parseLineEntry(line: String, day: DayOfWeek): ParsedLineResult? {
+        // Extract any inline COMMENT: e.g. "16:00-18:00 | OOPS LAB | LAB-307 COMMENT: UNCERTAIN - ..."
+        // or "09:00-10:00 | OOPS | COMMENT: UNCERTAIN - Room not specified."
+        var cleanLine = line
+        var extractedComment: String? = null
+        var warning: String? = null
+
+        if (cleanLine.contains("COMMENT:", ignoreCase = true)) {
+            val idx = cleanLine.indexOf("COMMENT:", ignoreCase = true)
+            extractedComment = cleanLine.substring(idx + 8).trim()
+            cleanLine = cleanLine.substring(0, idx).trim().trimEnd('|').trim()
+
+            if (extractedComment.contains("UNCERTAIN", ignoreCase = true)) {
+                warning = extractedComment
+            }
+        }
+
         // Supported delimiters: "|" or tabs
-        val parts = if (line.contains("|")) {
-            line.split("|").map { it.trim() }
-        } else if (line.contains("\t")) {
-            line.split("\t").map { it.trim() }
+        val parts = if (cleanLine.contains("|")) {
+            cleanLine.split("|").map { it.trim() }
+        } else if (cleanLine.contains("\t")) {
+            cleanLine.split("\t").map { it.trim() }
         } else {
             // Attempt to split by time range and remainder
-            val timeMatch = Regex("""^(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*[-–—]\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s+(.*)$""", RegexOption.IGNORE_CASE).find(line)
+            val timeMatch = Regex("""^(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*[-–—]\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s+(.*)$""", RegexOption.IGNORE_CASE).find(cleanLine)
             if (timeMatch != null) {
                 val (start, end, remainder) = timeMatch.destructured
                 listOf("$start - $end", remainder)
@@ -137,15 +198,23 @@ object TimetableTextParser {
         if (subjectName.isEmpty()) return null
 
         val location = if (parts.size > 2) parts[2].trim() else ""
-        val notes = if (parts.size > 3) parts[3].trim() else ""
+        val notes = if (parts.size > 3) parts[3].trim() else (extractedComment ?: "")
 
-        return ParsedTimetableEntry(
+        val entry = ParsedTimetableEntry(
             dayOfWeek = day,
             startMinute = startMin,
             endMinute = endMin,
             subjectName = subjectName,
             location = location,
             notes = notes
+        )
+
+        val warningMsg = if (warning != null) "$subjectName: $warning" else null
+
+        return ParsedLineResult(
+            entry = entry,
+            warning = warningMsg,
+            comment = extractedComment
         )
     }
 }

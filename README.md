@@ -13,7 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
   <img src="https://img.shields.io/badge/FOSS-100%25_Free_%26_Open_Source-success.svg" alt="100% FOSS" />
   <img src="https://img.shields.io/badge/Google_Play_Services-0%25_Zero_GMS-brightgreen.svg" alt="Zero GMS" />
-  <img src="https://img.shields.io/badge/Internet_Permission-None-orange.svg" alt="No Internet Required" />
+  <img src="https://img.shields.io/badge/Offline_First-100%25_Local_Storage-blue.svg" alt="100% Offline First" />
   <img src="https://img.shields.io/badge/Platform-Android_8.0+-green.svg" alt="Android 8.0+" />
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose_Material_3-purple.svg" alt="Material 3" />
 </p>
@@ -26,7 +26,7 @@
 
 - **Zero Google Proprietary Dependencies (No GMS)**: Does not link against `play-services-*`, Google Play In-App Review, Google Play Billing, or closed-source Google binaries.
 - **No Firebase, Analytics, or Telemetry**: Free from Firebase, Crashlytics, AdMob, or background telemetry.
-- **No Internet Permission**: The app does **not** declare `<uses-permission android:name="android.permission.INTERNET" />`. Not a single byte of your academic data leaves your device.
+- **100% Offline Attendance Storage**: All attendance records, timetable sessions, and subject statistics reside strictly on your local device. Network access is used exclusively on-demand when you tap "Check for Updates" to query official GitHub Releases.
 - **De-Googled ROM Ready**: Runs smoothly on privacy-focused Android distributions such as **GrapheneOS**, **CalyxOS**, **LineageOS**, **/e/OS**, and standard AOSP without requiring microG or Google Play Services.
 - **Permissive Open-Source License**: Released under the [Apache License, Version 2.0](LICENSE).
 
