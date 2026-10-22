@@ -42,15 +42,18 @@ class ClassAlarmScheduler @Inject constructor(
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val now = LocalDateTime.now()
 
+        val offsetMinutes = prefs.notificationOffsetMinutes.coerceIn(0, 30).toLong()
+
         for (session in sessions) {
             val subject = subjects[session.subjectId] ?: continue
 
-            // Class trigger time: at end minute of the class
+            // Class trigger time: at end minute of the class minus configured offset
             val classEndTime = today.atTime(session.endMinute / 60, session.endMinute % 60)
+            val triggerTime = classEndTime.minusMinutes(offsetMinutes)
 
-            // Only schedule if class ends in the future today
-            if (classEndTime.isAfter(now)) {
-                val triggerMillis = classEndTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            // Only schedule if trigger time is in the future today
+            if (triggerTime.isAfter(now)) {
+                val triggerMillis = triggerTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
                 val intent = Intent(context, AttendanceNotificationReceiver::class.java).apply {
                     action = AttendanceNotificationReceiver.ACTION_CHECK_CLASS_PROMPT

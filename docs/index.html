@@ -400,6 +400,9 @@
     .icon-purple { background: #F3E8FF; color: #7E22CE; }
     .icon-rose { background: #FFE4E6; color: #BE123C; }
     .icon-slate { background: #E2E8F0; color: #334155; }
+    .icon-indigo { background: #E0E7FF; color: #4338CA; }
+    .icon-teal { background: #CCFBF1; color: #0F766E; }
+    .icon-orange { background: #FFEDD5; color: #C2410C; }
 
     .feature-card h3 {
       font-size: 1.25rem;
@@ -637,7 +640,7 @@
       </h1>
 
       <p class="hero-subtitle">
-        A native, offline-first attendance manager for college students. Track subjects, know exactly how many classes you can safely miss, import timetables via AI, and mark attendance straight from home-screen widgets.
+        A native, offline-first attendance manager for college students. Track subjects, know exactly how many classes you can safely miss, simulate bunks, receive smart class-end notifications, import timetables via QR or AI, and mark attendance straight from home-screen widgets.
       </p>
 
       <!-- Dynamic Download CTA -->
@@ -708,7 +711,81 @@
       </div>
 
       <div class="grid-3">
-        <!-- Feature 1 -->
+        <!-- Feature 1: Notifications -->
+        <div class="feature-card">
+          <div class="feature-icon icon-indigo">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <h3>Smart Class-End Notifications</h3>
+          <p>Actionable alerts prompt you right as class dismisses with <strong>✓ Attended</strong>, <strong>✕ Missed</strong>, and <strong>🚫 Cancelled</strong> buttons. Boot auto-rescheduling ensures alarms persist across restarts.</p>
+        </div>
+
+        <!-- Feature 2: Bunk Simulator -->
+        <div class="feature-card">
+          <div class="feature-icon icon-orange">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+              <polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </div>
+          <h3>"What-If" Bunk & Fest Simulator</h3>
+          <p>Interactive steppers to simulate missing upcoming lectures and view real-time percentage drop and recovery count. Multi-day date planner for college fests and trips.</p>
+        </div>
+
+        <!-- Feature 3: Catch-Up Triage -->
+        <div class="feature-card">
+          <div class="feature-icon icon-teal">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+              <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+            </svg>
+          </div>
+          <h3>"Catch-Up" Triage Inbox</h3>
+          <p>Forgot to record attendance? Attendly detects unmarked sessions over the past 7 days and lets you triage them one-by-one or hit <strong>Mark All Present</strong> in seconds.</p>
+        </div>
+
+        <!-- Feature 4: QR & Clipboard Sync -->
+        <div class="feature-card">
+          <div class="feature-icon icon-purple">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+            </svg>
+          </div>
+          <h3>QR Code & Clipboard Timetable</h3>
+          <p>Share weekly timetables with classmates instantly via compressed QR codes. Includes built-in image decoder and automatic clipboard detection on app launch.</p>
+        </div>
+
+        <!-- Feature 5: Leave Rules -->
+        <div class="feature-card">
+          <div class="feature-icon icon-green">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3>University Leave & Concessions</h3>
+          <p>Tailor attendance rules to your college bylaws. Custom policies for <strong>On-Duty (OD)</strong> (Present vs Excused) and <strong>Medical Leave</strong> (Excused vs target concession).</p>
+        </div>
+
+        <!-- Feature 6: Extra Classes -->
+        <div class="feature-card">
+          <div class="feature-icon icon-rose">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="12" y1="8" x2="12" y2="16"/>
+              <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </div>
+          <h3>Extra & Rescheduled Classes</h3>
+          <p>Quickly log substitute, extra, or ad-hoc lectures on any date with custom start/end times without modifying or corrupting your master weekly schedule.</p>
+        </div>
+
+        <!-- Feature 7: Today Timeline -->
         <div class="feature-card">
           <div class="feature-icon icon-blue">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -720,31 +797,22 @@
           <p>Visual chronological timeline connecting your classes for the day. Single-tap to mark <strong>Present</strong>, <strong>Absent</strong>, or <strong>Cancelled</strong> with instant undo support.</p>
         </div>
 
-        <!-- Feature 2 -->
+        <!-- Feature 8: Safe Absences Math -->
         <div class="feature-card">
-          <div class="feature-icon icon-green">
+          <div class="feature-icon icon-amber">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M8 12h8"/>
+              <path d="M12 8v8"/>
             </svg>
           </div>
           <h3>Safe Absences & Recovery</h3>
           <p>No guesswork. Computes the exact number of classes you can miss while staying above your target, and consecutive attendances required if you fall behind.</p>
         </div>
 
-        <!-- Feature 3 -->
+        <!-- Feature 9: Glance Widgets -->
         <div class="feature-card">
-          <div class="feature-icon icon-purple">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-            </svg>
-          </div>
-          <h3>AI Timetable Text Importer</h3>
-          <p>Turn messy PDFs or photo timetables into structured schedules. Includes ready-to-copy prompts for ChatGPT, Gemini, or Claude and an offline parser.</p>
-        </div>
-
-        <!-- Feature 4 -->
-        <div class="feature-card">
-          <div class="feature-icon icon-amber">
+          <div class="feature-icon icon-blue">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
               <line x1="8" y1="21" x2="16" y2="21"/>
@@ -752,10 +820,10 @@
             </svg>
           </div>
           <h3>Interactive Home Widgets</h3>
-          <p>Jetpack Glance widgets for your launcher. View your overall percentage at a glance and mark current class attendance with tactile <strong>P</strong> and <strong>A</strong> buttons.</p>
+          <p>Jetpack Glance widgets for your launcher. View overall percentage and mark current class attendance with tactile <strong>P</strong>, <strong>A</strong>, and Cancelled buttons.</p>
         </div>
 
-        <!-- Feature 5 -->
+        <!-- Feature 10: Calendar & Holidays -->
         <div class="feature-card">
           <div class="feature-icon icon-rose">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -765,11 +833,22 @@
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
           </div>
-          <h3>Monthly Calendar History</h3>
-          <p>Need to correct last Thursday's attendance? Easily jump to any date on the calendar, view historical sessions, and update status anytime.</p>
+          <h3>Monthly Calendar & Holidays</h3>
+          <p>Preloaded national holidays, red calendar markers, and date-by-date session breakdowns with full historical editing and corrections.</p>
         </div>
 
-        <!-- Feature 6 -->
+        <!-- Feature 11: AI Importer -->
+        <div class="feature-card">
+          <div class="feature-icon icon-purple">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <h3>AI Timetable Prompt Importer</h3>
+          <p>Turn messy PDFs or photo timetables into structured schedules. Includes ready-to-copy prompts for ChatGPT, Gemini, or Claude and an offline parser.</p>
+        </div>
+
+        <!-- Feature 12: Backup & New Semester -->
         <div class="feature-card">
           <div class="feature-icon icon-slate">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -778,8 +857,8 @@
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </div>
-          <h3>SAF Backup & CSV Export</h3>
-          <p>Export your full database to JSON backups or spreadsheet-ready CSV using Android's Storage Access Framework. 100% offline and user-controlled.</p>
+          <h3>SAF Backup & Semester Reset</h3>
+          <p>Automated and SAF-managed JSON/CSV backups. Start a new semester with a clean slate while preserving previous semester data securely.</p>
         </div>
       </div>
 
@@ -790,8 +869,10 @@
           <p>Attendly does not ask for your email, phone number, or internet connection. Everything runs locally on your device with high-performance Room SQLite storage.</p>
           <div class="showcase-pill-row">
             <span class="showcase-pill">Zero Ads</span>
+            <span class="showcase-pill">Smart Notifications</span>
+            <span class="showcase-pill">Bunk Simulator</span>
+            <span class="showcase-pill">QR Timetable Sync</span>
             <span class="showcase-pill">Zero Cloud Sync</span>
-            <span class="showcase-pill">De-Googled Friendly</span>
             <span class="showcase-pill">GrapheneOS / CalyxOS Ready</span>
           </div>
         </div>

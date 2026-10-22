@@ -72,4 +72,28 @@ class TimetableExportTest {
         assertEquals(930, cn.endMinute)
         assertEquals("Hall B", cn.location)
     }
+
+    @Test
+    fun testQrCodeCompressionAndDecompression() {
+        val originalText = """
+            TIMETABLE
+            FORMAT_VERSION: 1
+            # 📅 Attendly Weekly Timetable
+
+            DAY: MONDAY
+            09:00-10:00 | Mathematics | Room 101 | Teacher: Dr. Smith
+            10:00-11:00 | Data Structures | Lab 2
+        """.trimIndent()
+
+        val compressed = com.hrshd1eux.attendly.core.util.QrCodeUtils.compressTimetable(originalText)
+        assertTrue(compressed.startsWith("ATTENDLY:v1:"))
+
+        val decompressed = com.hrshd1eux.attendly.core.util.QrCodeUtils.decompressTimetable(compressed)
+        assertEquals(originalText, decompressed)
+
+        val parseResult = TimetableTextParser.parse(compressed)
+        assertEquals(2, parseResult.entries.size)
+        assertEquals("Mathematics", parseResult.entries[0].subjectName)
+        assertEquals("Data Structures", parseResult.entries[1].subjectName)
+    }
 }

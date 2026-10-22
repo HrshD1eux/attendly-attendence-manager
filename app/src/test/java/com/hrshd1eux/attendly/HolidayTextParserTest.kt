@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly
+﻿package com.hrshd1eux.attendly
 
 import com.hrshd1eux.attendly.domain.parser.HolidayTextParser
 import org.junit.Assert.assertEquals

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.components
+﻿package com.hrshd1eux.attendly.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

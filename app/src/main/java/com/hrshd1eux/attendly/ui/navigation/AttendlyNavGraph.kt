@@ -19,6 +19,7 @@ import com.hrshd1eux.attendly.ui.home.HomeScreen
 import com.hrshd1eux.attendly.ui.onboarding.OnboardingScreen
 import com.hrshd1eux.attendly.ui.settings.BackupRestoreScreen
 import com.hrshd1eux.attendly.ui.settings.SettingsScreen
+import com.hrshd1eux.attendly.ui.simulator.BunkSimulatorScreen
 import com.hrshd1eux.attendly.ui.subjects.SubjectDetailScreen
 import com.hrshd1eux.attendly.ui.subjects.SubjectsScreen
 import com.hrshd1eux.attendly.ui.holidays.HolidaysScreen
@@ -96,6 +97,9 @@ fun AttendlyAppNavigation(
                     },
                     onNavigateToHolidays = {
                         navController.navigate(Screen.Holidays.route)
+                    },
+                    onNavigateToSimulator = {
+                        navController.navigate(Screen.Simulator.route)
                     }
                 )
             }
@@ -144,6 +148,13 @@ fun AttendlyAppNavigation(
             // Holidays
             composable(Screen.Holidays.route) {
                 HolidaysScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Bunk Simulator
+            composable(Screen.Simulator.route) {
+                BunkSimulatorScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

@@ -113,4 +113,76 @@ class AttendanceCalculatorTest {
         assertEquals(80.0, summary.percentage, 0.001)
         assertEquals(5, summary.cancelledUnits)
     }
+
+    @Test
+    fun testOnDutyPolicy_countAsPresent() {
+        val summary = AttendanceCalculator.calculateSummary(
+            presentUnits = 10,
+            absentUnits = 5,
+            cancelledUnits = 0,
+            targetPercentage = 75,
+            onDutyUnits = 5,
+            onDutyPolicy = com.hrshd1eux.attendly.core.model.OnDutyPolicy.COUNT_AS_PRESENT
+        )
+        // 10 base present + 5 OD present = 15 present. Total = 15 + 5 = 20. 15/20 = 75.0%
+        assertEquals(20, summary.totalEligibleUnits)
+        assertEquals(15, summary.presentUnits)
+        assertEquals(75.0, summary.percentage, 0.001)
+        assertEquals(AttendanceStanding.ON_TRACK, summary.standing)
+    }
+
+    @Test
+    fun testOnDutyPolicy_excused() {
+        val summary = AttendanceCalculator.calculateSummary(
+            presentUnits = 10,
+            absentUnits = 5,
+            cancelledUnits = 0,
+            targetPercentage = 75,
+            onDutyUnits = 5,
+            onDutyPolicy = com.hrshd1eux.attendly.core.model.OnDutyPolicy.EXCUSED
+        )
+        // 10 present, 5 absent. 5 OD excused (cancelled). Total = 15. 10/15 = 66.67%
+        assertEquals(15, summary.totalEligibleUnits)
+        assertEquals(10, summary.presentUnits)
+        assertEquals(5, summary.cancelledUnits)
+    }
+
+    @Test
+    fun testMedicalLeavePolicy_lowerTargetThreshold() {
+        val summary = AttendanceCalculator.calculateSummary(
+            presentUnits = 13,
+            absentUnits = 7, // 13/20 = 65%
+            cancelledUnits = 0,
+            targetPercentage = 75,
+            medicalUnits = 3,
+            medicalLeavePolicy = com.hrshd1eux.attendly.core.model.MedicalLeavePolicy.LOWER_TARGET_THRESHOLD,
+            medicalConcessionTarget = 65
+        )
+        // Effective target lowered to 65% due to medical concession
+        assertEquals(65, summary.targetPercentage)
+        assertEquals(65.0, summary.percentage, 0.001)
+        assertEquals(AttendanceStanding.ON_TRACK, summary.standing)
+    }
+
+    @Test
+    fun testWhatIfScenarioSimulation() {
+        val currentSummary = AttendanceCalculator.calculateSummary(
+            presentUnits = 36,
+            absentUnits = 9,
+            targetPercentage = 75
+        ) // 80% (36/45)
+
+        // Simulate bunking 5 classes
+        val simResult = AttendanceCalculator.simulateScenario(
+            currentSummary = currentSummary,
+            additionalAttended = 0,
+            additionalBunked = 5
+        )
+
+        // 36 / 50 = 72% -> drops below 75% target!
+        assertEquals(72.0, simResult.projectedSummary.percentage, 0.001)
+        assertTrue(simResult.isDebarRisk)
+        assertEquals(-8.0, simResult.deltaPercentage, 0.001)
+        assertEquals(6, simResult.recoveryClassesNeeded) // need 6 classes straight to recover back to 75%
+    }
 }

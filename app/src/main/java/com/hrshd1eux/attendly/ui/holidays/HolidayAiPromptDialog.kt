@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.holidays
+﻿package com.hrshd1eux.attendly.ui.holidays
 
 import android.content.ClipData
 import android.content.ClipboardManager

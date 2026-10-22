@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.data.local.entity
+﻿package com.hrshd1eux.attendly.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

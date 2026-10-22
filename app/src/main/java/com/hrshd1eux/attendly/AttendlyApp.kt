@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly
+﻿package com.hrshd1eux.attendly
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp

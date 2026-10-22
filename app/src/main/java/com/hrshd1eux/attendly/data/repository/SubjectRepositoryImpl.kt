@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.data.repository
+﻿package com.hrshd1eux.attendly.data.repository
 
 import com.hrshd1eux.attendly.data.local.dao.SubjectDao
 import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao

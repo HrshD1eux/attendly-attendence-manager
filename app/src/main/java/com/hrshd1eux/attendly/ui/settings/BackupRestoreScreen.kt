@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.settings
+﻿package com.hrshd1eux.attendly.ui.settings
 
 import android.net.Uri
 import android.widget.Toast

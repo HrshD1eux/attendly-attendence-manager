@@ -8,6 +8,18 @@ import com.hrshd1eux.attendly.domain.model.TodayClassItem
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
+data class UnmarkedClassSession(
+    val timetableSessionId: Long,
+    val subjectId: Long,
+    val subjectName: String,
+    val subjectShortCode: String,
+    val subjectColorKey: String,
+    val date: LocalDate,
+    val startMinute: Int,
+    val endMinute: Int,
+    val location: String
+)
+
 interface AttendanceRepository {
     fun getTodayClassesWithStatus(date: LocalDate = LocalDate.now()): Flow<List<TodayClassItem>>
     fun getSessionsForDate(date: LocalDate): Flow<List<ClassSession>>
@@ -17,6 +29,8 @@ interface AttendanceRepository {
     fun getSubjectDetails(): Flow<List<SubjectAttendanceDetail>>
     fun getArchivedSubjectDetails(): Flow<List<SubjectAttendanceDetail>>
     fun getSubjectDetail(subjectId: Long): Flow<SubjectAttendanceDetail?>
+
+    suspend fun getUnmarkedSessions(lookbackDays: Int = 7): List<UnmarkedClassSession>
 
     suspend fun recordAttendance(
         subjectId: Long,

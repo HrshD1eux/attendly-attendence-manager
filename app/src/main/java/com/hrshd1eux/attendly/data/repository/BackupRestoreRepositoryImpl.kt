@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.data.repository
+﻿package com.hrshd1eux.attendly.data.repository
 
 import com.hrshd1eux.attendly.core.model.TimeFormat
 import com.hrshd1eux.attendly.core.util.TimeUtils

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.model
+﻿package com.hrshd1eux.attendly.domain.model
 
 import com.hrshd1eux.attendly.core.model.AttendanceUnitPolicy
 import com.hrshd1eux.attendly.core.model.DayOfWeek

@@ -6,6 +6,8 @@ import com.hrshd1eux.attendly.BuildConfig
 import com.hrshd1eux.attendly.core.model.AppTheme
 import com.hrshd1eux.attendly.core.model.AttendanceUnitPolicy
 import com.hrshd1eux.attendly.core.model.DayOfWeek
+import com.hrshd1eux.attendly.core.model.MedicalLeavePolicy
+import com.hrshd1eux.attendly.core.model.OnDutyPolicy
 import com.hrshd1eux.attendly.core.model.TimeFormat
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
 import com.hrshd1eux.attendly.data.preferences.UserPreferences
@@ -119,6 +121,30 @@ class SettingsViewModel @Inject constructor(
     fun setLabUnitPolicy(policy: AttendanceUnitPolicy) {
         viewModelScope.launch {
             preferencesManager.setDefaultLabUnitPolicy(policy)
+        }
+    }
+
+    fun setNotificationOffsetMinutes(minutes: Int) {
+        viewModelScope.launch {
+            preferencesManager.setNotificationOffsetMinutes(minutes)
+        }
+    }
+
+    fun setOnDutyPolicy(policy: OnDutyPolicy) {
+        viewModelScope.launch {
+            preferencesManager.setOnDutyPolicy(policy)
+        }
+    }
+
+    fun setMedicalLeavePolicy(policy: MedicalLeavePolicy) {
+        viewModelScope.launch {
+            preferencesManager.setMedicalLeavePolicy(policy)
+        }
+    }
+
+    fun setMedicalConcessionTarget(target: Int) {
+        viewModelScope.launch {
+            preferencesManager.setMedicalConcessionTarget(target)
         }
     }
 

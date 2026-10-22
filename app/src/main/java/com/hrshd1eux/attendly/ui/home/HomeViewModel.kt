@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.hrshd1eux.attendly.ui.components.LeaveOption
+import com.hrshd1eux.attendly.domain.repository.UnmarkedClassSession
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -35,7 +36,11 @@ data class HomeUiState(
     val subjectDetails: List<SubjectAttendanceDetail> = emptyList(),
     val todayHoliday: Holiday? = null,
     val isLoading: Boolean = false,
-    val detectedBackup: com.hrshd1eux.attendly.data.backup.AutoBackupSummary? = null
+    val detectedBackup: com.hrshd1eux.attendly.data.backup.AutoBackupSummary? = null,
+    val unmarkedSessions: List<UnmarkedClassSession> = emptyList(),
+    val isCatchUpDialogOpen: Boolean = false,
+    val isCatchUpDismissed: Boolean = false,
+    val isAddExtraClassDialogOpen: Boolean = false
 )
 
 sealed class HomeUiEvent {
@@ -55,6 +60,10 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _detectedBackup = MutableStateFlow<com.hrshd1eux.attendly.data.backup.AutoBackupSummary?>(null)
+    private val _unmarkedSessions = MutableStateFlow<List<UnmarkedClassSession>>(emptyList())
+    private val _isCatchUpDialogOpen = MutableStateFlow(false)
+    private val _isCatchUpDismissed = MutableStateFlow(false)
+    private val _isAddExtraClassDialogOpen = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
@@ -62,7 +71,30 @@ class HomeViewModel @Inject constructor(
             if (backup != null) {
                 _detectedBackup.value = backup
             }
+            refreshUnmarkedSessions()
         }
+    }
+
+    private val _dialogAndInboxState = combine(
+        _unmarkedSessions,
+        _isCatchUpDialogOpen,
+        _isCatchUpDismissed,
+        _isAddExtraClassDialogOpen
+    ) { unmarked, isCatchUpOpen, isCatchUpDismissed, isExtraOpen ->
+        CatchUpAndExtraState(
+            unmarked = unmarked,
+            isCatchUpOpen = isCatchUpOpen,
+            isCatchUpDismissed = isCatchUpDismissed,
+            isExtraOpen = isExtraOpen
+        )
+    }
+
+    private val _attendanceStatsFlow = combine(
+        attendanceRepository.getOverallAttendanceSummary(),
+        attendanceRepository.getSubjectDetails(),
+        holidayRepository.getHolidayForDate(LocalDate.now())
+    ) { overall, subjects, holiday ->
+        Triple(overall, subjects, holiday)
     }
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -70,10 +102,9 @@ class HomeViewModel @Inject constructor(
             Pair(prefs, backup)
         },
         attendanceRepository.getTodayClassesWithStatus(LocalDate.now()),
-        attendanceRepository.getOverallAttendanceSummary(),
-        attendanceRepository.getSubjectDetails(),
-        holidayRepository.getHolidayForDate(LocalDate.now())
-    ) { (prefs, detectedBackup), todayClasses, overallSummary, subjectDetails, todayHoliday ->
+        _attendanceStatsFlow,
+        _dialogAndInboxState
+    ) { (prefs, detectedBackup), todayClasses, (overallSummary, subjectDetails, todayHoliday), inboxState ->
         val currentMinute = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
         val activePrompt = if (prefs.isOnLeaveToday || todayHoliday != null) {
             null
@@ -99,7 +130,11 @@ class HomeViewModel @Inject constructor(
             subjectDetails = subjectDetails,
             todayHoliday = todayHoliday,
             isLoading = false,
-            detectedBackup = backupToShow
+            detectedBackup = backupToShow,
+            unmarkedSessions = inboxState.unmarked,
+            isCatchUpDialogOpen = inboxState.isCatchUpOpen,
+            isCatchUpDismissed = inboxState.isCatchUpDismissed,
+            isAddExtraClassDialogOpen = inboxState.isExtraOpen
         )
     }.stateIn(
         scope = viewModelScope,
@@ -128,6 +163,8 @@ class HomeViewModel @Inject constructor(
                 AttendanceStatus.PRESENT -> "Present"
                 AttendanceStatus.ABSENT -> "Absent"
                 AttendanceStatus.CANCELLED -> "Cancelled"
+                AttendanceStatus.ON_DUTY -> "On-Duty"
+                AttendanceStatus.MEDICAL_LEAVE -> "Medical Leave"
             }
 
             _events.emit(
@@ -175,6 +212,8 @@ class HomeViewModel @Inject constructor(
                 AttendanceStatus.PRESENT -> "Present"
                 AttendanceStatus.ABSENT -> "Absent"
                 AttendanceStatus.CANCELLED -> "Cancelled"
+                AttendanceStatus.ON_DUTY -> "On-Duty"
+                AttendanceStatus.MEDICAL_LEAVE -> "Medical Leave"
             }
 
             _events.emit(
@@ -282,4 +321,95 @@ class HomeViewModel @Inject constructor(
             _detectedBackup.value = null
         }
     }
+
+    fun refreshUnmarkedSessions() {
+        viewModelScope.launch {
+            _unmarkedSessions.value = attendanceRepository.getUnmarkedSessions(7)
+        }
+    }
+
+    fun openCatchUpDialog() {
+        _isCatchUpDialogOpen.value = true
+    }
+
+    fun closeCatchUpDialog() {
+        _isCatchUpDialogOpen.value = false
+    }
+
+    fun dismissCatchUp() {
+        _isCatchUpDismissed.value = true
+    }
+
+    fun markUnmarkedSession(session: UnmarkedClassSession, status: AttendanceStatus) {
+        viewModelScope.launch {
+            attendanceRepository.recordAttendance(
+                subjectId = session.subjectId,
+                date = session.date,
+                status = status,
+                timetableSessionId = session.timetableSessionId,
+                startMinute = session.startMinute,
+                endMinute = session.endMinute,
+                location = session.location
+            )
+            refreshUnmarkedSessions()
+        }
+    }
+
+    fun markAllUnmarkedAsPresent() {
+        viewModelScope.launch {
+            val current = _unmarkedSessions.value
+            for (session in current) {
+                attendanceRepository.recordAttendance(
+                    subjectId = session.subjectId,
+                    date = session.date,
+                    status = AttendanceStatus.PRESENT,
+                    timetableSessionId = session.timetableSessionId,
+                    startMinute = session.startMinute,
+                    endMinute = session.endMinute,
+                    location = session.location
+                )
+            }
+            refreshUnmarkedSessions()
+        }
+    }
+
+    fun openAddExtraClassDialog() {
+        _isAddExtraClassDialogOpen.value = true
+    }
+
+    fun closeAddExtraClassDialog() {
+        _isAddExtraClassDialogOpen.value = false
+    }
+
+    fun recordExtraClass(
+        subjectId: Long,
+        date: LocalDate,
+        startMinute: Int,
+        endMinute: Int,
+        location: String,
+        status: AttendanceStatus,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            attendanceRepository.recordAttendance(
+                subjectId = subjectId,
+                date = date,
+                status = status,
+                timetableSessionId = null,
+                startMinute = startMinute,
+                endMinute = endMinute,
+                location = location,
+                notes = notes
+            )
+            closeAddExtraClassDialog()
+            refreshUnmarkedSessions()
+        }
+    }
 }
+
+private data class CatchUpAndExtraState(
+    val unmarked: List<UnmarkedClassSession> = emptyList(),
+    val isCatchUpOpen: Boolean = false,
+    val isCatchUpDismissed: Boolean = false,
+    val isExtraOpen: Boolean = false
+)

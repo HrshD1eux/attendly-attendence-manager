@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.repository
+﻿package com.hrshd1eux.attendly.domain.repository
 
 import com.hrshd1eux.attendly.domain.model.Subject
 import kotlinx.coroutines.flow.Flow

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.theme
+﻿package com.hrshd1eux.attendly.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

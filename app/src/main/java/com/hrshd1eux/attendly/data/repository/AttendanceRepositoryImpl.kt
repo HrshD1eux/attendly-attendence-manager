@@ -2,16 +2,19 @@ package com.hrshd1eux.attendly.data.repository
 
 import com.hrshd1eux.attendly.core.model.AttendanceStatus
 import com.hrshd1eux.attendly.core.model.DayOfWeek
-import com.hrshd1eux.attendly.domain.calculator.AttendanceCalculator
 import com.hrshd1eux.attendly.data.local.dao.ClassSessionDao
+import com.hrshd1eux.attendly.data.local.dao.HolidayDao
 import com.hrshd1eux.attendly.data.local.dao.SubjectDao
 import com.hrshd1eux.attendly.data.local.dao.TimetableSessionDao
 import com.hrshd1eux.attendly.data.local.entity.ClassSessionEntity
+import com.hrshd1eux.attendly.data.preferences.PreferencesManager
+import com.hrshd1eux.attendly.domain.calculator.AttendanceCalculator
 import com.hrshd1eux.attendly.domain.model.AttendanceSummary
 import com.hrshd1eux.attendly.domain.model.ClassSession
 import com.hrshd1eux.attendly.domain.model.SubjectAttendanceDetail
 import com.hrshd1eux.attendly.domain.model.TodayClassItem
 import com.hrshd1eux.attendly.domain.repository.AttendanceRepository
+import com.hrshd1eux.attendly.domain.repository.UnmarkedClassSession
 import android.content.Context
 import com.hrshd1eux.attendly.widget.WidgetUpdater
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,7 +30,9 @@ class AttendanceRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val classSessionDao: ClassSessionDao,
     private val subjectDao: SubjectDao,
-    private val timetableDao: TimetableSessionDao
+    private val timetableDao: TimetableSessionDao,
+    private val holidayDao: HolidayDao,
+    private val preferencesManager: PreferencesManager
 ) : AttendanceRepository {
 
     override fun getTodayClassesWithStatus(date: LocalDate): Flow<List<TodayClassItem>> {
@@ -144,8 +149,9 @@ class AttendanceRepositoryImpl @Inject constructor(
     override fun getOverallAttendanceSummary(): Flow<AttendanceSummary> {
         return combine(
             subjectDao.getActiveSubjects(),
-            classSessionDao.getAllClassSessions()
-        ) { activeSubjects, allSessions ->
+            classSessionDao.getAllClassSessions(),
+            preferencesManager.userPreferencesFlow
+        ) { activeSubjects, allSessions, prefs ->
             if (activeSubjects.isEmpty()) {
                 return@combine AttendanceCalculator.calculateSummary(0, 0, 0, 75)
             }
@@ -153,6 +159,8 @@ class AttendanceRepositoryImpl @Inject constructor(
             var totalPresent = 0
             var totalAbsent = 0
             var totalCancelled = 0
+            var totalOnDuty = 0
+            var totalMedical = 0
 
             // Baseline counts from active subjects
             for (subject in activeSubjects) {
@@ -168,21 +176,34 @@ class AttendanceRepositoryImpl @Inject constructor(
                     AttendanceStatus.PRESENT.name -> totalPresent += session.attendanceUnits
                     AttendanceStatus.ABSENT.name -> totalAbsent += session.attendanceUnits
                     AttendanceStatus.CANCELLED.name -> totalCancelled += session.attendanceUnits
+                    AttendanceStatus.ON_DUTY.name -> totalOnDuty += session.attendanceUnits
+                    AttendanceStatus.MEDICAL_LEAVE.name -> totalMedical += session.attendanceUnits
                 }
             }
 
             // Target percentage: average or first subject target, default 75
             val avgTarget = (activeSubjects.map { it.targetPercentage }.average()).toInt().coerceIn(1, 100)
 
-            AttendanceCalculator.calculateSummary(totalPresent, totalAbsent, totalCancelled, avgTarget)
+            AttendanceCalculator.calculateSummary(
+                presentUnits = totalPresent,
+                absentUnits = totalAbsent,
+                cancelledUnits = totalCancelled,
+                targetPercentage = avgTarget,
+                onDutyUnits = totalOnDuty,
+                medicalUnits = totalMedical,
+                onDutyPolicy = prefs.onDutyPolicy,
+                medicalLeavePolicy = prefs.medicalLeavePolicy,
+                medicalConcessionTarget = prefs.medicalConcessionTarget
+            )
         }
     }
 
     override fun getSubjectDetails(): Flow<List<SubjectAttendanceDetail>> {
         return combine(
             subjectDao.getActiveSubjects(),
-            classSessionDao.getAllClassSessions()
-        ) { activeSubjects, allSessions ->
+            classSessionDao.getAllClassSessions(),
+            preferencesManager.userPreferencesFlow
+        ) { activeSubjects, allSessions, prefs ->
             val sessionsBySubject = allSessions.groupBy { it.subjectId }
 
             activeSubjects.map { subjectEntity ->
@@ -192,12 +213,16 @@ class AttendanceRepositoryImpl @Inject constructor(
                 var presentUnits = subject.initialPresent
                 var absentUnits = subject.initialAbsent
                 var cancelledUnits = 0
+                var onDutyUnits = 0
+                var medicalUnits = 0
 
                 for (s in sessions) {
                     when (s.status) {
                         AttendanceStatus.PRESENT.name -> presentUnits += s.attendanceUnits
                         AttendanceStatus.ABSENT.name -> absentUnits += s.attendanceUnits
                         AttendanceStatus.CANCELLED.name -> cancelledUnits += s.attendanceUnits
+                        AttendanceStatus.ON_DUTY.name -> onDutyUnits += s.attendanceUnits
+                        AttendanceStatus.MEDICAL_LEAVE.name -> medicalUnits += s.attendanceUnits
                     }
                 }
 
@@ -205,7 +230,12 @@ class AttendanceRepositoryImpl @Inject constructor(
                     presentUnits = presentUnits,
                     absentUnits = absentUnits,
                     cancelledUnits = cancelledUnits,
-                    targetPercentage = subject.targetPercentage
+                    targetPercentage = subject.targetPercentage,
+                    onDutyUnits = onDutyUnits,
+                    medicalUnits = medicalUnits,
+                    onDutyPolicy = prefs.onDutyPolicy,
+                    medicalLeavePolicy = prefs.medicalLeavePolicy,
+                    medicalConcessionTarget = prefs.medicalConcessionTarget
                 )
 
                 SubjectAttendanceDetail(
@@ -220,8 +250,9 @@ class AttendanceRepositoryImpl @Inject constructor(
     override fun getArchivedSubjectDetails(): Flow<List<SubjectAttendanceDetail>> {
         return combine(
             subjectDao.getArchivedSubjects(),
-            classSessionDao.getAllClassSessions()
-        ) { archivedSubjects, allSessions ->
+            classSessionDao.getAllClassSessions(),
+            preferencesManager.userPreferencesFlow
+        ) { archivedSubjects, allSessions, prefs ->
             val sessionsBySubject = allSessions.groupBy { it.subjectId }
 
             archivedSubjects.map { subjectEntity ->
@@ -231,12 +262,16 @@ class AttendanceRepositoryImpl @Inject constructor(
                 var presentUnits = subject.initialPresent
                 var absentUnits = subject.initialAbsent
                 var cancelledUnits = 0
+                var onDutyUnits = 0
+                var medicalUnits = 0
 
                 for (s in sessions) {
                     when (s.status) {
                         AttendanceStatus.PRESENT.name -> presentUnits += s.attendanceUnits
                         AttendanceStatus.ABSENT.name -> absentUnits += s.attendanceUnits
                         AttendanceStatus.CANCELLED.name -> cancelledUnits += s.attendanceUnits
+                        AttendanceStatus.ON_DUTY.name -> onDutyUnits += s.attendanceUnits
+                        AttendanceStatus.MEDICAL_LEAVE.name -> medicalUnits += s.attendanceUnits
                     }
                 }
 
@@ -244,7 +279,12 @@ class AttendanceRepositoryImpl @Inject constructor(
                     presentUnits = presentUnits,
                     absentUnits = absentUnits,
                     cancelledUnits = cancelledUnits,
-                    targetPercentage = subject.targetPercentage
+                    targetPercentage = subject.targetPercentage,
+                    onDutyUnits = onDutyUnits,
+                    medicalUnits = medicalUnits,
+                    onDutyPolicy = prefs.onDutyPolicy,
+                    medicalLeavePolicy = prefs.medicalLeavePolicy,
+                    medicalConcessionTarget = prefs.medicalConcessionTarget
                 )
 
                 SubjectAttendanceDetail(
@@ -259,20 +299,25 @@ class AttendanceRepositoryImpl @Inject constructor(
     override fun getSubjectDetail(subjectId: Long): Flow<SubjectAttendanceDetail?> {
         return combine(
             subjectDao.getSubjectByIdFlow(subjectId),
-            classSessionDao.getSessionsForSubject(subjectId)
-        ) { subjectEntity, sessions ->
+            classSessionDao.getSessionsForSubject(subjectId),
+            preferencesManager.userPreferencesFlow
+        ) { subjectEntity, sessions, prefs ->
             if (subjectEntity == null) return@combine null
             val subject = subjectEntity.toDomain()
 
             var presentUnits = subject.initialPresent
             var absentUnits = subject.initialAbsent
             var cancelledUnits = 0
+            var onDutyUnits = 0
+            var medicalUnits = 0
 
             for (s in sessions) {
                 when (s.status) {
                     AttendanceStatus.PRESENT.name -> presentUnits += s.attendanceUnits
                     AttendanceStatus.ABSENT.name -> absentUnits += s.attendanceUnits
                     AttendanceStatus.CANCELLED.name -> cancelledUnits += s.attendanceUnits
+                    AttendanceStatus.ON_DUTY.name -> onDutyUnits += s.attendanceUnits
+                    AttendanceStatus.MEDICAL_LEAVE.name -> medicalUnits += s.attendanceUnits
                 }
             }
 
@@ -280,7 +325,12 @@ class AttendanceRepositoryImpl @Inject constructor(
                 presentUnits = presentUnits,
                 absentUnits = absentUnits,
                 cancelledUnits = cancelledUnits,
-                targetPercentage = subject.targetPercentage
+                targetPercentage = subject.targetPercentage,
+                onDutyUnits = onDutyUnits,
+                medicalUnits = medicalUnits,
+                onDutyPolicy = prefs.onDutyPolicy,
+                medicalLeavePolicy = prefs.medicalLeavePolicy,
+                medicalConcessionTarget = prefs.medicalConcessionTarget
             )
 
             SubjectAttendanceDetail(
@@ -289,6 +339,61 @@ class AttendanceRepositoryImpl @Inject constructor(
                 recentSessions = sessions.map { it.toDomain(subjectEntity) }
             )
         }
+    }
+
+    override suspend fun getUnmarkedSessions(lookbackDays: Int): List<UnmarkedClassSession> {
+        val today = LocalDate.now()
+        val nowMinutes = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
+        val unmarked = mutableListOf<UnmarkedClassSession>()
+
+        val activeSubjects = subjectDao.getActiveSubjectsSync().associateBy { it.id }
+        if (activeSubjects.isEmpty()) return emptyList()
+
+        for (dayOffset in 0..lookbackDays) {
+            val checkDate = today.minusDays(dayOffset.toLong())
+            val checkDateStr = checkDate.toString()
+
+            // Skip university holidays
+            if (holidayDao.getHolidayForDateSync(checkDateStr) != null) continue
+
+            val dayOfWeek = DayOfWeek.fromJavaDayOfWeek(checkDate.dayOfWeek)
+            val ttSessions = timetableDao.getSessionsForDaySync(dayOfWeek.isoValue)
+            val recordedSessions = classSessionDao.getSessionsForDateSync(checkDateStr)
+
+            val recordedTimetableIds = recordedSessions.mapNotNull { it.timetableSessionId }.toSet()
+            val recordedSubjectStartMinutes = recordedSessions.map { "${it.subjectId}_${it.startMinute}" }.toSet()
+
+            for (tt in ttSessions) {
+                val subject = activeSubjects[tt.subjectId] ?: continue
+
+                // If checking today, only consider classes whose start time has already passed
+                if (checkDate == today && tt.startMinute > nowMinutes) {
+                    continue
+                }
+
+                // Check if already recorded
+                val isRecorded = recordedTimetableIds.contains(tt.id) ||
+                        recordedSubjectStartMinutes.contains("${tt.subjectId}_${tt.startMinute}")
+
+                if (!isRecorded) {
+                    unmarked.add(
+                        UnmarkedClassSession(
+                            timetableSessionId = tt.id,
+                            subjectId = tt.subjectId,
+                            subjectName = subject.name,
+                            subjectShortCode = subject.shortCode,
+                            subjectColorKey = subject.colorKey,
+                            date = checkDate,
+                            startMinute = tt.startMinute,
+                            endMinute = tt.endMinute,
+                            location = tt.location
+                        )
+                    )
+                }
+            }
+        }
+
+        return unmarked.sortedWith(compareByDescending<UnmarkedClassSession> { it.date }.thenBy { it.startMinute })
     }
 
     override suspend fun recordAttendance(

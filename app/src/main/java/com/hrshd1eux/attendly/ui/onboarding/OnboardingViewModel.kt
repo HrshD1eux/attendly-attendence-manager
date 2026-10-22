@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.onboarding
+﻿package com.hrshd1eux.attendly.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

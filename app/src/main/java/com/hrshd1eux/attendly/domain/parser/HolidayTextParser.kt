@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.parser
+﻿package com.hrshd1eux.attendly.domain.parser
 
 import com.hrshd1eux.attendly.domain.model.Holiday
 import java.time.LocalDate

@@ -118,6 +118,8 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
                     "PRESENT" -> p += s.attendanceUnits
                     "ABSENT" -> a += s.attendanceUnits
                     "CANCELLED" -> c += s.attendanceUnits
+                    "ON_DUTY" -> p += s.attendanceUnits
+                    "MEDICAL_LEAVE" -> c += s.attendanceUnits
                 }
             }
             val summary = AttendanceCalculator.calculateSummary(p, a, c, subject?.targetPercentage ?: 75)
@@ -154,6 +156,8 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
                     "PRESENT" -> totalP += cs.attendanceUnits
                     "ABSENT" -> totalA += cs.attendanceUnits
                     "CANCELLED" -> totalC += cs.attendanceUnits
+                    "ON_DUTY" -> totalP += cs.attendanceUnits
+                    "MEDICAL_LEAVE" -> totalC += cs.attendanceUnits
                 }
             }
             val target = if (subjects.isNotEmpty()) (subjects.map { it.targetPercentage }.average()).toInt().coerceIn(1, 100) else 75

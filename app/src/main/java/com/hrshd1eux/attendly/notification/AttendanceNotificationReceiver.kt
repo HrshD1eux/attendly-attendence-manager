@@ -195,15 +195,20 @@ class AttendanceNotificationReceiver : BroadcastReceiver() {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
 
-                    // On Leave Action
-                    val leaveIntent = Intent(context, AttendanceNotificationReceiver::class.java).apply {
-                        action = ACTION_MARK_LEAVE
+                    // Cancelled Action
+                    val cancelledIntent = Intent(context, AttendanceNotificationReceiver::class.java).apply {
+                        action = ACTION_MARK_ATTENDANCE
+                        putExtra(EXTRA_SUBJECT_ID, subjectId)
+                        putExtra(EXTRA_STATUS, AttendanceStatus.CANCELLED.name)
+                        putExtra(EXTRA_TIMETABLE_SESSION_ID, ttSessionId)
+                        putExtra(EXTRA_START_MINUTE, startMinute)
+                        putExtra(EXTRA_END_MINUTE, endMinute)
                         putExtra(EXTRA_NOTIFICATION_ID, notificationId)
                     }
-                    val leavePi = PendingIntent.getBroadcast(
+                    val cancelledPi = PendingIntent.getBroadcast(
                         context,
                         notificationId * 10 + 3,
-                        leaveIntent,
+                        cancelledIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
 
@@ -228,7 +233,7 @@ class AttendanceNotificationReceiver : BroadcastReceiver() {
                         .setContentIntent(contentPi)
                         .addAction(android.R.drawable.checkbox_on_background, "✓ Attended", presentPi)
                         .addAction(android.R.drawable.ic_menu_close_clear_cancel, "✕ Missed", absentPi)
-                        .addAction(android.R.drawable.ic_lock_idle_alarm, "🏖️ On Leave", leavePi)
+                        .addAction(android.R.drawable.ic_delete, "🚫 Cancelled", cancelledPi)
 
                     val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     manager.notify(notificationId, builder.build())

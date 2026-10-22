@@ -12,6 +12,8 @@ data class AttendanceSummary(
     val presentUnits: Int,
     val absentUnits: Int,
     val cancelledUnits: Int = 0,
+    val onDutyUnits: Int = 0,
+    val medicalUnits: Int = 0,
     val totalEligibleUnits: Int,
     val percentage: Double,
     val formattedPercentage: String,
@@ -21,6 +23,16 @@ data class AttendanceSummary(
     val isImpossible100: Boolean = false,
     val standing: AttendanceStanding,
     val statusMessage: String
+)
+
+data class ScenarioSimulationResult(
+    val currentSummary: AttendanceSummary,
+    val projectedSummary: AttendanceSummary,
+    val deltaPercentage: Double,
+    val additionalAttended: Int,
+    val additionalBunked: Int,
+    val isDebarRisk: Boolean,
+    val recoveryClassesNeeded: Int?
 )
 
 data class SubjectAttendanceDetail(

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.data.backup
+﻿package com.hrshd1eux.attendly.data.backup
 
 import android.content.ContentResolver
 import android.content.ContentValues

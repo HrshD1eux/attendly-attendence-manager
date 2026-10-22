@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly
+﻿package com.hrshd1eux.attendly
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

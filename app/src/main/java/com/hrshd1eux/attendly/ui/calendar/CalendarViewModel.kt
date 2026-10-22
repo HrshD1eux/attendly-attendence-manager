@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.calendar
+﻿package com.hrshd1eux.attendly.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

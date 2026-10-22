@@ -67,6 +67,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hrshd1eux.attendly.core.model.AppTheme
 import com.hrshd1eux.attendly.core.model.AttendanceUnitPolicy
 import com.hrshd1eux.attendly.core.model.DayOfWeek
+import com.hrshd1eux.attendly.core.model.MedicalLeavePolicy
+import com.hrshd1eux.attendly.core.model.OnDutyPolicy
 import com.hrshd1eux.attendly.core.model.TimeFormat
 import com.hrshd1eux.attendly.ui.components.AttendlyTopBar
 import kotlinx.coroutines.launch
@@ -246,6 +248,152 @@ fun SettingsScreen(
                             subtitle = "Learn how percentages and safe bunks work",
                             onClick = viewModel::openExplanationDialog
                         )
+                    }
+                }
+            }
+
+            // Leave & Concession Rules Section
+            item {
+                SettingsSectionHeader("Leave & Concession Rules")
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // On-Duty (OD) Rule
+                        Column {
+                            Text(
+                                text = "On-Duty (OD) Attendance Policy",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Determines how approved college duty / fest leaves count towards attendance.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            OnDutyPolicy.entries.forEach { policy ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.setOnDutyPolicy(policy) }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = prefs.onDutyPolicy == policy,
+                                        onClick = { viewModel.setOnDutyPolicy(policy) }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(text = policy.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                        Text(text = policy.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Medical Leave Rule
+                        Column {
+                            Text(
+                                text = "Medical Leave Policy",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Choose how verified medical certificates affect your semester percentage.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            MedicalLeavePolicy.entries.forEach { policy ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.setMedicalLeavePolicy(policy) }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = prefs.medicalLeavePolicy == policy,
+                                        onClick = { viewModel.setMedicalLeavePolicy(policy) }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(text = policy.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                        Text(text = policy.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+
+                            if (prefs.medicalLeavePolicy == MedicalLeavePolicy.LOWER_TARGET_THRESHOLD) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Medical Concession Target",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "${prefs.medicalConcessionTarget}%",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Slider(
+                                    value = prefs.medicalConcessionTarget.toFloat(),
+                                    onValueChange = { viewModel.setMedicalConcessionTarget(it.toInt()) },
+                                    valueRange = 50f..85f,
+                                    steps = 34,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        // Notification Offset
+                        Column {
+                            Text(
+                                text = "Class-End Notification Timing",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "When should the prompt appear to record class attendance?",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            val offsets = listOf(
+                                0 to "Exactly when class ends",
+                                5 to "5 minutes before class ends (Recommended)"
+                            )
+                            offsets.forEach { (offset, label) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.setNotificationOffsetMinutes(offset) }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = prefs.notificationOffsetMinutes == offset,
+                                        onClick = { viewModel.setNotificationOffsetMinutes(offset) }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = label, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
                     }
                 }
             }

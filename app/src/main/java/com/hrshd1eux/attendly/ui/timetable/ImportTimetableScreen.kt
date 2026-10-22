@@ -1,5 +1,8 @@
 package com.hrshd1eux.attendly.ui.timetable
 
+import android.content.ClipboardManager
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,8 +24,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -89,6 +94,31 @@ fun ImportTimetableScreen(
         }
     }
 
+    val qrImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    if (bitmap != null) {
+                        viewModel.decodeQrBitmap(
+                            bitmap = bitmap,
+                            onSuccess = {
+                                Toast.makeText(context, "QR Timetable Loaded Successfully!", Toast.LENGTH_SHORT).show()
+                            },
+                            onError = {
+                                Toast.makeText(context, "Could not find valid Attendly QR code in image", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to read image: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     // Class Group Selection Dialog (Automatically pops up when timetable contains multiple groups e.g. G1, G2, G3)
     if (uiState.isGroupSelectionDialogOpen && uiState.detectedGroups.size > 1) {
         ClassGroupSelectionDialog(
@@ -135,34 +165,77 @@ fun ImportTimetableScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            filePickerLauncher.launch(arrayOf("text/plain"))
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.FileOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Pick .txt File")
+                        OutlinedButton(
+                            onClick = {
+                                filePickerLauncher.launch(arrayOf("text/plain"))
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.FileOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Pick .txt")
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                qrImagePickerLauncher.launch("image/*")
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Scan/Pick QR")
+                        }
                     }
 
-                    Button(
-                        onClick = {
-                            if (inputText.isNotBlank()) {
-                                viewModel.parseTimetableText(inputText)
-                            } else {
-                                Toast.makeText(context, "Please paste or import timetable text first", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("Parse & Review")
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    val clipText = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
+                                    if (!clipText.isNullOrBlank()) {
+                                        inputText = clipText
+                                        viewModel.parseTimetableText(clipText)
+                                        Toast.makeText(context, "Pasted from clipboard", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not read clipboard", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Paste Clip")
+                        }
+
+                        Button(
+                            onClick = {
+                                if (inputText.isNotBlank()) {
+                                    viewModel.parseTimetableText(inputText)
+                                } else {
+                                    Toast.makeText(context, "Please paste or import timetable text first", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Parse & Review")
+                        }
                     }
                 }
             }

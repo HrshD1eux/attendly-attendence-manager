@@ -20,10 +20,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Class
+import androidx.compose.material.icons.filled.MoreTime
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
@@ -71,12 +76,33 @@ fun HomeScreen(
     onNavigateToTimetable: () -> Unit,
     onNavigateToCalendar: () -> Unit,
     onNavigateToHolidays: () -> Unit = {},
+    onNavigateToSimulator: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var showHolidayDialog by remember { mutableStateOf(false) }
+
+    if (uiState.isCatchUpDialogOpen) {
+        CatchUpTriageDialog(
+            unmarkedSessions = uiState.unmarkedSessions,
+            timeFormat = uiState.userPreferences.timeFormat,
+            onMarkSession = viewModel::markUnmarkedSession,
+            onMarkAllPresent = viewModel::markAllUnmarkedAsPresent,
+            onDismiss = viewModel::closeCatchUpDialog
+        )
+    }
+
+    if (uiState.isAddExtraClassDialogOpen) {
+        AddExtraClassDialog(
+            activeSubjects = uiState.subjectDetails.map { it.subject },
+            timeFormat = uiState.userPreferences.timeFormat,
+            defaultDate = uiState.currentDate,
+            onSave = viewModel::recordExtraClass,
+            onDismiss = viewModel::closeAddExtraClassDialog
+        )
+    }
 
     if (showHolidayDialog) {
         DeclareHolidayDialog(
@@ -185,6 +211,23 @@ fun HomeScreen(
                     // Top Action Icons
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
+                            onClick = onNavigateToSimulator,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Calculate,
+                                contentDescription = "Bunk Simulator",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(
                             onClick = onNavigateToCalendar,
                             modifier = Modifier
                                 .size(42.dp)
@@ -214,6 +257,64 @@ fun HomeScreen(
                                 contentDescription = "Add Subject",
                                 modifier = Modifier.size(22.dp)
                             )
+                        }
+                    }
+                }
+            }
+
+            // Catch-Up Unmarked Classes Banner
+            if (uiState.unmarkedSessions.isNotEmpty() && !uiState.isCatchUpDismissed) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "${uiState.unmarkedSessions.size} Unmarked Past Classes",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Text(
+                                        text = "Catch up now to keep attendance records accurate.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = viewModel::openCatchUpDialog,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Review")
+                            }
                         }
                     }
                 }
@@ -283,28 +384,48 @@ fun HomeScreen(
 
             // Quick Actions Bar
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    QuickActionButton(
-                        icon = Icons.Default.Add,
-                        label = "Add Subject",
-                        onClick = onNavigateToAddSubject,
-                        modifier = Modifier.weight(1f)
-                    )
-                    QuickActionButton(
-                        icon = Icons.AutoMirrored.Filled.EventNote,
-                        label = "Timetable",
-                        onClick = onNavigateToTimetable,
-                        modifier = Modifier.weight(1f)
-                    )
-                    QuickActionButton(
-                        icon = Icons.Default.CalendarMonth,
-                        label = "Calendar",
-                        onClick = onNavigateToCalendar,
-                        modifier = Modifier.weight(1f)
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        QuickActionButton(
+                            icon = Icons.Default.MoreTime,
+                            label = "+ Extra Class",
+                            onClick = viewModel::openAddExtraClassDialog,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickActionButton(
+                            icon = Icons.Default.Calculate,
+                            label = "Bunk Simulator",
+                            onClick = onNavigateToSimulator,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        QuickActionButton(
+                            icon = Icons.Default.Add,
+                            label = "Add Subject",
+                            onClick = onNavigateToAddSubject,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickActionButton(
+                            icon = Icons.AutoMirrored.Filled.EventNote,
+                            label = "Timetable",
+                            onClick = onNavigateToTimetable,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickActionButton(
+                            icon = Icons.Default.CalendarMonth,
+                            label = "Calendar",
+                            onClick = onNavigateToCalendar,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.repository
+﻿package com.hrshd1eux.attendly.domain.repository
 
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.domain.model.ParsedTimetableEntry

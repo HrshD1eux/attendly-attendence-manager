@@ -16,13 +16,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,6 +42,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Place
 import com.hrshd1eux.attendly.domain.parser.TimetableTextParser
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -46,6 +53,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,6 +79,17 @@ fun TimetableScreen(
     val context = LocalContext.current
     var showShareMenu by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val item = clipboard?.primaryClip?.getItemAt(0)
+            val clipText = item?.text?.toString()
+            viewModel.checkClipboardForTimetable(clipText)
+        } catch (e: Exception) {
+            // Ignore clipboard access restrictions
+        }
+    }
+
     fun shareTimetable(exportedText: String, title: String) {
         if (exportedText.isBlank()) {
             Toast.makeText(context, "No classes scheduled to share", Toast.LENGTH_SHORT).show()
@@ -83,6 +102,14 @@ fun TimetableScreen(
         }
         val chooser = Intent.createChooser(sendIntent, "Share Timetable")
         context.startActivity(chooser)
+    }
+
+    if (uiState.isQrShareDialogOpen && uiState.qrShareBitmap != null) {
+        QrShareDialog(
+            bitmap = uiState.qrShareBitmap!!,
+            title = uiState.qrShareTitle,
+            onDismiss = viewModel::closeQrShareDialog
+        )
     }
 
     Scaffold(
@@ -104,7 +131,7 @@ fun TimetableScreen(
                             onDismissRequest = { showShareMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Share Full Timetable") },
+                                text = { Text("Share Text (Full Week)") },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.DateRange,
@@ -120,7 +147,7 @@ fun TimetableScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Share ${uiState.selectedDay.displayName} Only") },
+                                text = { Text("Share Text (${uiState.selectedDay.displayName})") },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Today,
@@ -133,6 +160,35 @@ fun TimetableScreen(
                                     viewModel.exportTimetable(uiState.selectedDay) { exportedText ->
                                         shareTimetable(exportedText, "${uiState.selectedDay.displayName} Timetable")
                                     }
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Share as QR Code (Full Week)") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCode,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    showShareMenu = false
+                                    viewModel.openQrShareDialog(null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Share as QR (${uiState.selectedDay.displayName})") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCode2,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    showShareMenu = false
+                                    viewModel.openQrShareDialog(uiState.selectedDay)
                                 }
                             )
                         }
@@ -165,6 +221,56 @@ fun TimetableScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (uiState.showClipboardPrompt && uiState.detectedClipboardText != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "📋 Timetable detected in clipboard",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Review and load it into your schedule directly.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = viewModel::dismissClipboardPrompt) {
+                                Text("Dismiss")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.importDetectedClipboard()
+                                    onNavigateToImport()
+                                }
+                            ) {
+                                Text("Import")
+                            }
+                        }
+                    }
+                }
+            }
+
             // Day Selector Tabs
             ScrollableTabRow(
                 selectedTabIndex = uiState.selectedDay.ordinal,

@@ -244,6 +244,8 @@ private fun TimelineClassRow(
         AttendanceStatus.PRESENT -> statusColors.present
         AttendanceStatus.ABSENT -> statusColors.absent
         AttendanceStatus.CANCELLED -> statusColors.cancelled
+        AttendanceStatus.ON_DUTY -> MaterialTheme.colorScheme.primary
+        AttendanceStatus.MEDICAL_LEAVE -> MaterialTheme.colorScheme.tertiary
         null -> MaterialTheme.colorScheme.primary
     }
 
@@ -456,6 +458,24 @@ private fun TimelineClassRow(
                                     onClick = {
                                         showMenu = false
                                         onMarkStatus(AttendanceStatus.CANCELLED)
+                                    }
+                                )
+                            }
+                            if (item.status != AttendanceStatus.ON_DUTY) {
+                                DropdownMenuItem(
+                                    text = { Text("Mark On-Duty (OD)") },
+                                    onClick = {
+                                        showMenu = false
+                                        onMarkStatus(AttendanceStatus.ON_DUTY)
+                                    }
+                                )
+                            }
+                            if (item.status != AttendanceStatus.MEDICAL_LEAVE) {
+                                DropdownMenuItem(
+                                    text = { Text("Mark Medical Leave") },
+                                    onClick = {
+                                        showMenu = false
+                                        onMarkStatus(AttendanceStatus.MEDICAL_LEAVE)
                                     }
                                 )
                             }

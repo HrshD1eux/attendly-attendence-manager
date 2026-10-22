@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.holidays
+﻿package com.hrshd1eux.attendly.ui.holidays
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

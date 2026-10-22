@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.components
+﻿package com.hrshd1eux.attendly.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement

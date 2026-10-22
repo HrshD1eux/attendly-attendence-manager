@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +54,18 @@ fun AttendanceStatusBadge(
             statusColors.onCancelledContainer,
             Icons.Default.Cancel,
             "Cancelled"
+        )
+        AttendanceStatus.ON_DUTY -> Quad(
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer,
+            Icons.Default.Verified,
+            "On-Duty"
+        )
+        AttendanceStatus.MEDICAL_LEAVE -> Quad(
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
+            Icons.Default.LocalHospital,
+            "Medical"
         )
     }
 

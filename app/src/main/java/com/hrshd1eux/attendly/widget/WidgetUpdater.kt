@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.widget
+﻿package com.hrshd1eux.attendly.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.parser
+﻿package com.hrshd1eux.attendly.domain.parser
 
 object TimetableGroupDetector {
 

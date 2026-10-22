@@ -15,8 +15,9 @@ object TimetableTextParser {
 
         var currentDay: DayOfWeek? = null
 
-        // 1. Pre-process raw text to split concatenated days and concatenated time slots
-        val normalizedLines = preprocessTimetableText(rawText)
+        // 1. Pre-process raw text: handle decompression if payload is compressed QR/base64
+        val decompressed = com.hrshd1eux.attendly.core.util.QrCodeUtils.decompressTimetable(rawText)
+        val normalizedLines = preprocessTimetableText(decompressed)
 
         for (rawLine in normalizedLines) {
             val line = rawLine.trim()

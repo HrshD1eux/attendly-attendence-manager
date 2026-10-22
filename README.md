@@ -39,42 +39,74 @@
    - Interactive chronological **timeline** connecting today's classes with node indicators.
    - Single-tap **Present**, **Absent**, and **Cancelled** attendance recording directly from the timeline.
    - Quick stat cards showing current **Attendance %** with health status and **Safe Bunks / Recovery Needed**.
+   - Quick action buttons for **+ Extra Class** and **Bunk Simulator**.
    - Undo snackbar for immediate reversal of accidental actions.
 
-2. **Accurate Attendance Engine & Pure Math Calculations**
+2. **Smart Class-End Notifications & Background Alarms**
+   - Actionable notifications triggered right as classes conclude with one-tap action buttons: `✓ Attended`, `✕ Missed`, and `🚫 Cancelled`.
+   - Configurable notification timing offset in Settings (on dismissal, or 5, 10, or 15 minutes before class ends).
+   - Android `BootReceiver` integration that automatically re-schedules today's alarms whenever your device reboots or the app updates.
+
+3. **"Catch-Up" Triage Inbox for Unmarked Classes**
+   - Never lose track of attendance when you forget to mark classes during busy days.
+   - Automatically detects past unmarked sessions over the last 7 days.
+   - Dismissible home-screen triage banner with instant **"Mark All Present"** or single-tap sequential review.
+
+4. **Extra & Rescheduled Lecture Logger**
+   - Record ad-hoc, substitute, or extra lectures held outside the standard weekly schedule.
+   - Choose any subject, date, custom start/end times, and attendance status without polluting or modifying your master timetable.
+
+5. **"What-If" Bunk Simulator & Fest Planner**
+   - **Quick Bunk Meter**: Interactive steppers to simulate missing upcoming lectures; visualizes attendance drop and computes exact consecutive classes required to recover back to target.
+   - **Fest & Vacation Planner**: Select start and end dates to calculate the cumulative attendance impact across all scheduled subjects before booking trips or attending college fests.
+
+6. **University Leave & Concession Rules (On-Duty & Medical)**
+   - Tailored to real-world university attendance bylaws.
+   - Dedicated statuses for **On-Duty (OD)** and **Medical Leave**.
+   - Configurable OD policy: Counted as *Present* (accredited) or *Excused* (neutral).
+   - Configurable Medical policy: *Excused* (excluded from denominator) or *Target Concession* (e.g. relaxed required threshold from 75% down to 65%).
+
+7. **Instant QR Code & Auto-Clipboard Timetable Sync**
+   - Share weekly timetables with classmates in seconds via GZIP-compressed QR codes (`ATTENDLY:v1:...`).
+   - Built-in QR scanner and image picker with ZXing.
+   - Automatic clipboard detection on app launch with one-tap import banner.
+
+8. **Accurate Attendance Engine & Pure Math Calculations**
    - Precise arithmetic using integer inequalities to prevent floating-point boundary errors.
    - **Safe Absences Calculator**: Computes the exact number of classes a student can miss while maintaining $\ge \text{Target}\%$.
    - **Recovery Classes Calculator**: Computes the minimum number of consecutive classes required to restore attendance back to $\text{Target}\%$.
-   - Special-case handling for edge cases (e.g., target 100% with prior absences).
+   - Special-case handling for boundary edge cases (e.g., target 100% with prior absences).
    - Excludes cancelled classes from the attendance denominator.
    - Mid-semester baseline totals (support for initial attended and missed count offsets).
 
-3. **Timetable Management & AI Text Import**
+9. **Timetable Management & AI Text Import**
    - Weekly day-by-day timetable planner and visual schedule viewer.
    - Conflict detection with warning prompts for overlapping class timings.
    - Configurable laboratory attendance unit policy: *1 unit per session* vs *1 unit per hour*.
    - **AI Timetable Prompt Generator**: Copy-paste prompts designed for ChatGPT, Gemini, or Claude to turn timetable PDFs or image tables into structured plain text.
    - Built-in plain-text and `.txt` file timetable parser with live review preview (recognized sessions, warnings, unrecognized lines) and Replace vs Merge options.
 
-4. **Monthly Calendar with Historical Corrections**
-   - Navigate months with previous/next controls and instant "Today" jump.
-   - Color-coded indicator dots (Green for all attended, Red for absences, Grey for cancelled).
-   - Daily breakdown of classes on the selected date with the ability to edit status or record ad-hoc sessions.
+10. **Monthly Calendar with Holiday Markers & Historical Corrections**
+    - Navigate months with previous/next controls and instant "Today" jump.
+    - Color-coded indicator dots (Green for attended, Red for absences, Amber for OD/Medical, Grey for cancelled).
+    - Holiday integration with national holidays preloaded, custom holiday creation, and calendar red circle badges.
+    - Daily breakdown of classes on the selected date with the ability to edit status or record ad-hoc sessions.
 
-5. **Android Home-Screen Widgets (Jetpack Glance)**
-   - **Attendly Overview Widget**: Glance widget displaying overall attendance percentage, target, and status badge with tap-to-open.
-   - **Quick Mark Widget**: Interactive widget with direct **Present** and **Absent** action buttons that record attendance and refresh statistics directly from your home screen.
+11. **Android Home-Screen Widgets (Jetpack Glance)**
+    - **Attendly Overview Widget**: Glance widget displaying overall attendance percentage, target, and status badge with tap-to-open.
+    - **Quick Mark Widget**: Interactive widget with direct **Present**, **Absent**, and **Cancelled** action buttons that record attendance and refresh statistics directly from your home screen with zero delay.
 
-6. **Offline Backup, Restore & Data Privacy**
-   - 100% offline — zero tracking, accounts, ads, or external network requests.
-   - Export and restore versioned JSON backups using Android's Storage Access Framework (SAF).
-   - Export full attendance records to human-readable CSV.
-   - Secure data reset with confirmation safeguards.
+12. **Offline Backup, Semester Archive & Data Privacy**
+    - 100% offline — zero tracking, accounts, ads, or external network requests.
+    - Automated local backups with seamless restore prompts.
+    - Clean **New Semester** reset with secure historical data archiving.
+    - Export and restore versioned JSON backups using Android's Storage Access Framework (SAF).
+    - Export full attendance records to human-readable CSV.
 
-7. **Material 3 Design System**
-   - Full Light, Dark, and Follow System theme modes persisted via Jetpack DataStore Preferences.
-   - Semantic color system (Green, Red, Amber, Neutral) with accessible contrast, labels, and icons.
-   - Full edge-to-edge layout support.
+13. **Material 3 Design System**
+    - Full Light, Dark, and Follow System theme modes persisted via Jetpack DataStore Preferences.
+    - Semantic color system (Green, Red, Amber, Neutral) with accessible contrast, labels, and icons.
+    - Full edge-to-edge layout support.
 
 ---
 
@@ -87,6 +119,7 @@
 - **Preferences**: Jetpack DataStore Preferences
 - **Dependency Injection**: Dagger Hilt
 - **Home Screen Widgets**: Jetpack Glance 1.1.1
+- **QR Code Engine**: ZXing Core 3.5.3 (pure Java offline barcode engine)
 - **Testing**: JUnit 4, Kotlinx Coroutines Test
 
 ---
@@ -129,7 +162,7 @@ Attendly includes production-grade GitHub Actions workflows for continuous integ
 ### Workflows
 1. **Continuous Integration (`.github/workflows/ci.yml`)**:
    - Triggers on every push and pull request to `main`/`master`.
-   - Validates Gradle wrapper, runs all 33 unit tests, compiles the debug APK, and uploads the debug artifact for quick testing.
+   - Validates Gradle wrapper, runs all unit tests, compiles the debug APK, and uploads the debug artifact for quick testing.
 
 2. **Release & Publish APK (`.github/workflows/release.yml`)**:
    - Triggers manually via **Actions > Run workflow** or on push of release tags (`v*`).

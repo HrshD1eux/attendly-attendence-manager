@@ -36,7 +36,12 @@ data class TimetableUiState(
     val selectedGroup: String? = null,
     val cleanSubjectNames: Boolean = true,
     val isGroupSelectionDialogOpen: Boolean = false,
-    val isImporting: Boolean = false
+    val isImporting: Boolean = false,
+    val isQrShareDialogOpen: Boolean = false,
+    val qrShareBitmap: android.graphics.Bitmap? = null,
+    val qrShareTitle: String = "",
+    val detectedClipboardText: String? = null,
+    val showClipboardPrompt: Boolean = false
 ) {
     val ignoredSessionsCount: Int
         get() {
@@ -46,11 +51,22 @@ data class TimetableUiState(
         }
 }
 
-private data class ImportParseState(
-    val rawParseResult: TimetableParseResult? = null,
-    val selectedGroup: String? = null,
-    val cleanSubjectNames: Boolean = true,
-    val isGroupSelectionDialogOpen: Boolean = false
+private data class DialogExtraState(
+    val isAddEdit: Boolean = false,
+    val sessionToEdit: TimetableSession? = null,
+    val isAiPrompt: Boolean = false,
+    val isQrShare: Boolean = false,
+    val qrBitmap: android.graphics.Bitmap? = null,
+    val qrTitle: String = ""
+)
+
+private data class ImportExtraState(
+    val raw: TimetableParseResult? = null,
+    val group: String? = null,
+    val clean: Boolean = true,
+    val isDialogOpen: Boolean = false,
+    val clipboardText: String? = null,
+    val showClipboardPrompt: Boolean = false
 )
 
 @HiltViewModel
@@ -70,21 +86,47 @@ class TimetableViewModel @Inject constructor(
     private val _cleanSubjectNames = MutableStateFlow(true)
     private val _isGroupSelectionDialogOpen = MutableStateFlow(false)
 
+    private val _isQrShareDialogOpen = MutableStateFlow(false)
+    private val _qrShareBitmap = MutableStateFlow<android.graphics.Bitmap?>(null)
+    private val _qrShareTitle = MutableStateFlow("")
+
+    private val _detectedClipboardText = MutableStateFlow<String?>(null)
+    private val _showClipboardPrompt = MutableStateFlow(false)
+
     private val _dialogState = combine(
         _isAddEditDialogOpen,
         _sessionToEdit,
-        _isAiPromptDialogOpen
-    ) { isAddEdit, sessionToEdit, isAiPrompt ->
-        Triple(isAddEdit, sessionToEdit, isAiPrompt)
+        _isAiPromptDialogOpen,
+        _isQrShareDialogOpen,
+        _qrShareBitmap,
+        _qrShareTitle
+    ) { args ->
+        DialogExtraState(
+            isAddEdit = args[0] as Boolean,
+            sessionToEdit = args[1] as TimetableSession?,
+            isAiPrompt = args[2] as Boolean,
+            isQrShare = args[3] as Boolean,
+            qrBitmap = args[4] as android.graphics.Bitmap?,
+            qrTitle = args[5] as String
+        )
     }
 
     private val _importState = combine(
         _rawParseResult,
         _selectedGroup,
         _cleanSubjectNames,
-        _isGroupSelectionDialogOpen
-    ) { raw, group, clean, isDialogOpen ->
-        ImportParseState(raw, group, clean, isDialogOpen)
+        _isGroupSelectionDialogOpen,
+        _detectedClipboardText,
+        _showClipboardPrompt
+    ) { args ->
+        ImportExtraState(
+            raw = args[0] as TimetableParseResult?,
+            group = args[1] as String?,
+            clean = args[2] as Boolean,
+            isDialogOpen = args[3] as Boolean,
+            clipboardText = args[4] as String?,
+            showClipboardPrompt = args[5] as Boolean
+        )
     }
 
     val uiState: StateFlow<TimetableUiState> = combine(
@@ -93,10 +135,10 @@ class TimetableViewModel @Inject constructor(
         _selectedDay,
         _dialogState,
         _importState
-    ) { sessions, subjects, day, (isAddEdit, sessionToEdit, isAiPrompt), importState ->
-        val filteredResult = importState.rawParseResult?.filterByGroup(
-            targetGroup = importState.selectedGroup,
-            cleanSubjectNames = importState.cleanSubjectNames
+    ) { sessions, subjects, day, dialogState, importState ->
+        val filteredResult = importState.raw?.filterByGroup(
+            targetGroup = importState.group,
+            cleanSubjectNames = importState.clean
         )
 
         TimetableUiState(
@@ -104,15 +146,20 @@ class TimetableViewModel @Inject constructor(
             sessionsForSelectedDay = sessions.filter { it.dayOfWeek == day }.sortedBy { it.startMinute },
             allSessions = sessions,
             activeSubjects = subjects,
-            isAddEditDialogOpen = isAddEdit,
-            sessionToEdit = sessionToEdit,
-            isAiPromptDialogOpen = isAiPrompt,
-            rawParseResult = importState.rawParseResult,
+            isAddEditDialogOpen = dialogState.isAddEdit,
+            sessionToEdit = dialogState.sessionToEdit,
+            isAiPromptDialogOpen = dialogState.isAiPrompt,
+            rawParseResult = importState.raw,
             parseResult = filteredResult,
-            detectedGroups = importState.rawParseResult?.detectedGroups ?: emptyList(),
-            selectedGroup = importState.selectedGroup,
-            cleanSubjectNames = importState.cleanSubjectNames,
-            isGroupSelectionDialogOpen = importState.isGroupSelectionDialogOpen
+            detectedGroups = importState.raw?.detectedGroups ?: emptyList(),
+            selectedGroup = importState.group,
+            cleanSubjectNames = importState.clean,
+            isGroupSelectionDialogOpen = importState.isDialogOpen,
+            isQrShareDialogOpen = dialogState.isQrShare,
+            qrShareBitmap = dialogState.qrBitmap,
+            qrShareTitle = dialogState.qrTitle,
+            detectedClipboardText = importState.clipboardText,
+            showClipboardPrompt = importState.showClipboardPrompt
         )
     }.stateIn(
         scope = viewModelScope,
@@ -247,6 +294,57 @@ class TimetableViewModel @Inject constructor(
         viewModelScope.launch {
             val text = timetableRepository.exportTimetableAsText(dayOfWeek)
             onReady(text)
+        }
+    }
+
+    fun openQrShareDialog(dayOfWeek: DayOfWeek? = null) {
+        viewModelScope.launch {
+            val text = timetableRepository.exportTimetableAsText(dayOfWeek)
+            val compressed = com.hrshd1eux.attendly.core.util.QrCodeUtils.compressTimetable(text)
+            val bitmap = com.hrshd1eux.attendly.core.util.QrCodeUtils.generateQrBitmap(compressed, 768)
+            val title = if (dayOfWeek == null) "Weekly Timetable" else "${dayOfWeek.displayName} Timetable"
+            _qrShareBitmap.value = bitmap
+            _qrShareTitle.value = title
+            _isQrShareDialogOpen.value = true
+        }
+    }
+
+    fun closeQrShareDialog() {
+        _isQrShareDialogOpen.value = false
+        _qrShareBitmap.value = null
+    }
+
+    fun checkClipboardForTimetable(clipboardText: String?) {
+        if (clipboardText.isNullOrBlank()) return
+        val trimmed = clipboardText.trim()
+        val isRecognized = trimmed.startsWith("ATTENDLY:v1:") ||
+                trimmed.contains("📅 Attendly", ignoreCase = true) ||
+                (trimmed.contains("DAY:", ignoreCase = true) && trimmed.contains("|")) ||
+                (trimmed.contains("TIMETABLE", ignoreCase = true))
+
+        if (isRecognized && _rawParseResult.value == null) {
+            _detectedClipboardText.value = trimmed
+            _showClipboardPrompt.value = true
+        }
+    }
+
+    fun dismissClipboardPrompt() {
+        _showClipboardPrompt.value = false
+    }
+
+    fun importDetectedClipboard() {
+        val text = _detectedClipboardText.value ?: return
+        _showClipboardPrompt.value = false
+        parseTimetableText(text)
+    }
+
+    fun decodeQrBitmap(bitmap: android.graphics.Bitmap, onSuccess: () -> Unit, onError: () -> Unit) {
+        val decoded = com.hrshd1eux.attendly.core.util.QrCodeUtils.decodeQrFromBitmap(bitmap)
+        if (decoded != null && decoded.isNotBlank()) {
+            parseTimetableText(decoded)
+            onSuccess()
+        } else {
+            onError()
         }
     }
 }

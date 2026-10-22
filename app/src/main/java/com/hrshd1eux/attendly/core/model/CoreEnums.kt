@@ -1,9 +1,21 @@
-package com.hrshd1eux.attendly.core.model
+﻿package com.hrshd1eux.attendly.core.model
 
 enum class AttendanceStatus {
     PRESENT,
     ABSENT,
-    CANCELLED
+    CANCELLED,
+    ON_DUTY,
+    MEDICAL_LEAVE
+}
+
+enum class OnDutyPolicy(val title: String, val description: String) {
+    COUNT_AS_PRESENT("Count as Present", "On-Duty attendance is credited as attended classes"),
+    EXCUSED("Excused (Neutral)", "On-Duty classes are exempted from total conducted count")
+}
+
+enum class MedicalLeavePolicy(val title: String, val description: String) {
+    EXCUSED("Excused (Neutral)", "Medical leaves are excluded from total classes so % is not hurt"),
+    LOWER_TARGET_THRESHOLD("Concession Target", "Applies a relaxed attendance requirement (e.g. 65%) for exam eligibility")
 }
 
 enum class AttendanceUnitPolicy {

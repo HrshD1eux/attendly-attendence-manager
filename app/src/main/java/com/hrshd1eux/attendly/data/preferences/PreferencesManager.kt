@@ -12,6 +12,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.hrshd1eux.attendly.core.model.AppTheme
 import com.hrshd1eux.attendly.core.model.AttendanceUnitPolicy
 import com.hrshd1eux.attendly.core.model.DayOfWeek
+import com.hrshd1eux.attendly.core.model.MedicalLeavePolicy
+import com.hrshd1eux.attendly.core.model.OnDutyPolicy
 import com.hrshd1eux.attendly.core.model.TimeFormat
 import com.hrshd1eux.attendly.widget.WidgetUpdater
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,6 +36,10 @@ data class UserPreferences(
     val leaveDate: String = "",
     val leaveType: String = "CANCELLED",
     val notificationsEnabled: Boolean = true,
+    val notificationOffsetMinutes: Int = 0,
+    val onDutyPolicy: OnDutyPolicy = OnDutyPolicy.COUNT_AS_PRESENT,
+    val medicalLeavePolicy: MedicalLeavePolicy = MedicalLeavePolicy.EXCUSED,
+    val medicalConcessionTarget: Int = 65,
     val autoRestorePromptDismissed: Boolean = false
 ) {
     val isOnLeaveToday: Boolean
@@ -58,6 +64,10 @@ class PreferencesManager @Inject constructor(
         val LEAVE_DATE = stringPreferencesKey("leave_date")
         val LEAVE_TYPE = stringPreferencesKey("leave_type")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val NOTIFICATION_OFFSET_MINUTES = intPreferencesKey("notification_offset_minutes")
+        val ON_DUTY_POLICY = stringPreferencesKey("on_duty_policy")
+        val MEDICAL_LEAVE_POLICY = stringPreferencesKey("medical_leave_policy")
+        val MEDICAL_CONCESSION_TARGET = intPreferencesKey("medical_concession_target")
         val AUTO_RESTORE_PROMPT_DISMISSED = booleanPreferencesKey("auto_restore_prompt_dismissed")
     }
 
@@ -73,6 +83,10 @@ class PreferencesManager @Inject constructor(
         val leaveDate = preferences[PreferencesKeys.LEAVE_DATE] ?: ""
         val leaveType = preferences[PreferencesKeys.LEAVE_TYPE] ?: "CANCELLED"
         val notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true
+        val notifOffset = preferences[PreferencesKeys.NOTIFICATION_OFFSET_MINUTES] ?: 0
+        val odPolicyStr = preferences[PreferencesKeys.ON_DUTY_POLICY] ?: OnDutyPolicy.COUNT_AS_PRESENT.name
+        val medPolicyStr = preferences[PreferencesKeys.MEDICAL_LEAVE_POLICY] ?: MedicalLeavePolicy.EXCUSED.name
+        val medTarget = preferences[PreferencesKeys.MEDICAL_CONCESSION_TARGET] ?: 65
         val autoRestoreDismissed = preferences[PreferencesKeys.AUTO_RESTORE_PROMPT_DISMISSED] ?: false
 
         UserPreferences(
@@ -87,6 +101,10 @@ class PreferencesManager @Inject constructor(
             leaveDate = leaveDate,
             leaveType = leaveType,
             notificationsEnabled = notificationsEnabled,
+            notificationOffsetMinutes = notifOffset,
+            onDutyPolicy = runCatching { OnDutyPolicy.valueOf(odPolicyStr) }.getOrDefault(OnDutyPolicy.COUNT_AS_PRESENT),
+            medicalLeavePolicy = runCatching { MedicalLeavePolicy.valueOf(medPolicyStr) }.getOrDefault(MedicalLeavePolicy.EXCUSED),
+            medicalConcessionTarget = medTarget,
             autoRestorePromptDismissed = autoRestoreDismissed
         )
     }
@@ -156,6 +174,33 @@ class PreferencesManager @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] = enabled
         }
+    }
+
+    suspend fun setNotificationOffsetMinutes(minutes: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.NOTIFICATION_OFFSET_MINUTES] = minutes.coerceIn(0, 30)
+        }
+    }
+
+    suspend fun setOnDutyPolicy(policy: OnDutyPolicy) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ON_DUTY_POLICY] = policy.name
+        }
+        WidgetUpdater.notifyDataChanged(context)
+    }
+
+    suspend fun setMedicalLeavePolicy(policy: MedicalLeavePolicy) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MEDICAL_LEAVE_POLICY] = policy.name
+        }
+        WidgetUpdater.notifyDataChanged(context)
+    }
+
+    suspend fun setMedicalConcessionTarget(target: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MEDICAL_CONCESSION_TARGET] = target.coerceIn(40, 100)
+        }
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     suspend fun setAutoRestorePromptDismissed(dismissed: Boolean) {

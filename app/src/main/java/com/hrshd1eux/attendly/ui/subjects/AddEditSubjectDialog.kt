@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.subjects
+﻿package com.hrshd1eux.attendly.ui.subjects
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.repository
+﻿package com.hrshd1eux.attendly.domain.repository
 
 data class BackupValidationResult(
     val isValid: Boolean,

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.core.util
+﻿package com.hrshd1eux.attendly.core.util
 
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.core.model.TimeFormat

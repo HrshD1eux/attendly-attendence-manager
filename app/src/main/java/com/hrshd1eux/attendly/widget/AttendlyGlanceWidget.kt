@@ -69,6 +69,8 @@ class AttendlyGlanceWidget : GlanceAppWidget() {
                 "PRESENT" -> totalP += cs.attendanceUnits
                 "ABSENT" -> totalA += cs.attendanceUnits
                 "CANCELLED" -> totalC += cs.attendanceUnits
+                "ON_DUTY" -> totalP += cs.attendanceUnits
+                "MEDICAL_LEAVE" -> totalC += cs.attendanceUnits
             }
         }
 

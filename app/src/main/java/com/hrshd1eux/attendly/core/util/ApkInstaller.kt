@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.core.util
+﻿package com.hrshd1eux.attendly.core.util
 
 import android.content.Context
 import android.content.Intent

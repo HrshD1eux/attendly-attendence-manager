@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.data.local
+﻿package com.hrshd1eux.attendly.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase

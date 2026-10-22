@@ -323,6 +323,8 @@ fun RecordDateClassesDialog(
                                     AttendanceStatus.PRESENT -> statusColors.presentContainer to statusColors.onPresentContainer
                                     AttendanceStatus.ABSENT -> statusColors.absentContainer to statusColors.onAbsentContainer
                                     AttendanceStatus.CANCELLED -> statusColors.cancelledContainer to statusColors.onCancelledContainer
+                                    AttendanceStatus.ON_DUTY -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+                                    AttendanceStatus.MEDICAL_LEAVE -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
                                 }
 
                                 Box(

@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.domain.model
+﻿package com.hrshd1eux.attendly.domain.model
 
 import java.time.LocalDate
 

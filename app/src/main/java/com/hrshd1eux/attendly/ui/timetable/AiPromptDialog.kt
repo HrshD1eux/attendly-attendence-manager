@@ -1,4 +1,4 @@
-package com.hrshd1eux.attendly.ui.timetable
+﻿package com.hrshd1eux.attendly.ui.timetable
 
 import android.content.ClipData
 import android.content.ClipboardManager
