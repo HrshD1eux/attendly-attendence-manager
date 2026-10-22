@@ -1,4 +1,4 @@
-﻿package com.hrshd1eux.attendly.ui.timetable
+package com.hrshd1eux.attendly.ui.timetable
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -128,7 +128,7 @@ fun AiPromptDialog(
 
                 val steps = listOf(
                     "1. Copy the prompt below.",
-                    "2. Open ChatGPT, Gemini, or Claude.",
+                    "2. Open your preferred AI assistant (e.g. ChatGPT, Claude, Gemini).",
                     "3. Upload a photo or PDF of your timetable.",
                     "4. Paste the prompt and send.",
                     "5. Copy the AI's response.",

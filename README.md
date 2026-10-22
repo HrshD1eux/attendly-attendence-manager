@@ -201,3 +201,14 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 ```
+
+
+---
+
+## ⚖️ Disclaimers & Legal Notices
+
+### Academic Disclaimer
+Attendly: Attendance Manager is an informal academic estimation and self-tracking utility. University attendance bylaws, faculty registers, and institutional rounding rules always supersede local app calculations. The authors and contributors assume no liability for attendance shortages, academic disciplinary actions, or semester examination debarment.
+
+### Trademark Notice
+All product names, logos, brands, and registered trademarks mentioned within the application or documentation (including ChatGPT, Gemini, Claude, Android, and Google Play) are the property of their respective owners. Attendly: Attendance Manager is an independent open-source software project and is not affiliated with, endorsed by, or sponsored by these entities or other applications named Attendly on Google Play or elsewhere.

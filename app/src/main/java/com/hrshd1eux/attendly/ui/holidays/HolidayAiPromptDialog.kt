@@ -1,4 +1,4 @@
-﻿package com.hrshd1eux.attendly.ui.holidays
+package com.hrshd1eux.attendly.ui.holidays
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -123,7 +123,7 @@ fun HolidayAiPromptDialog(
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
                     )
                     Text(
-                        text = "2. Open ChatGPT, Gemini, or Claude.",
+                        text = "2. Open your preferred AI assistant (e.g. ChatGPT, Claude, Gemini).",
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
                     )
                     Text(

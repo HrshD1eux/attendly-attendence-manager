@@ -22,6 +22,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Backup
@@ -90,6 +95,7 @@ fun SettingsScreen(
 
     var showAboutDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showLicensesDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -465,15 +471,21 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         SettingsRowItem(
                             icon = Icons.Default.Info,
-                            title = "About Attendly",
+                            title = "About Attendly: Attendance Manager",
                             subtitle = "Version ${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • Offline-first Attendance Tracker",
                             onClick = { showAboutDialog = true }
                         )
                         SettingsRowItem(
                             icon = Icons.Default.School,
                             title = "Privacy Policy",
-                            subtitle = "100% offline, zero tracking or background telemetry",
+                            subtitle = "100% local storage, zero analytics or telemetry",
                             onClick = { showPrivacyDialog = true }
+                        )
+                        SettingsRowItem(
+                            icon = Icons.Default.Description,
+                            title = "Open Source Licenses",
+                            subtitle = "Apache 2.0 notices & third-party attributions",
+                            onClick = { showLicensesDialog = true }
                         )
                         SettingsRowItem(
                             icon = Icons.Default.SystemUpdate,
@@ -542,6 +554,12 @@ fun SettingsScreen(
                             text = "• Recovery Classes: The minimum number of consecutive upcoming classes you must attend to recover your attendance back to your target.",
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                        Text(
+                            text = "• Disclaimer: Always cross-check with your university's official attendance records before planning absences. Attendly is an estimation tool; calculations are provided without warranty. The authors accept no liability for academic debarment.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 confirmButton = {
@@ -556,15 +574,82 @@ fun SettingsScreen(
         if (showAboutDialog) {
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
-                title = { Text("Attendly v${BuildConfig.VERSION_NAME}") },
+                title = { Text("Attendly: Attendance Manager") },
                 text = {
-                    Text(
-                        "Attendly is a native, modern, offline-first attendance tracking application built with Kotlin, Jetpack Compose, and Room.\n\nCrafted specifically for students to effortlessly monitor class attendance, calculate safe absences, and maintain academic goals.\n\nVersion: ${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})"
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Attendly: Attendance Manager is a native, modern, offline-first attendance tracking application built with Kotlin, Jetpack Compose, and Room.\n\nVersion: ${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                        Text(
+                            text = "Academic Disclaimer: Attendly is an informal self-tracking estimator. Official university records always prevail. The authors and contributors accept no liability for academic debarment, attendance shortages, or lost examination eligibility.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Trademark Notice: Attendly: Attendance Manager is an independent open-source project and is not affiliated with, endorsed by, or sponsored by other entities or apps named Attendly on Google Play or elsewhere.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(onClick = { showAboutDialog = false }) {
                         Text("OK")
+                    }
+                }
+            )
+        }
+
+        // Open Source Licenses Dialog
+        if (showLicensesDialog) {
+            AlertDialog(
+                onDismissRequest = { showLicensesDialog = false },
+                title = { Text("Open Source Licenses") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Attendly: Attendance Manager is released under the Apache License 2.0.",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        HorizontalDivider()
+                        Text(
+                            text = "Third-Party Libraries & Attributions:",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val licenses = listOf(
+                            "ZXing Core 3.5.3" to "Copyright (C) 2008-2024 ZXing authors.\nLicensed under the Apache License, Version 2.0.",
+                            "AndroidX & Jetpack Compose" to "Copyright (C) 2018-2024 The Android Open Source Project.\nLicensed under the Apache License, Version 2.0.",
+                            "Room Persistence Library" to "Copyright (C) 2017-2024 The Android Open Source Project.\nLicensed under the Apache License, Version 2.0.",
+                            "Jetpack Glance" to "Copyright (C) 2021-2024 The Android Open Source Project.\nLicensed under the Apache License, Version 2.0.",
+                            "Dagger Hilt" to "Copyright (C) 2020-2024 Google LLC.\nLicensed under the Apache License, Version 2.0.",
+                            "Kotlinx Coroutines" to "Copyright (C) 2016-2024 JetBrains s.r.o.\nLicensed under the Apache License, Version 2.0."
+                        )
+                        licenses.forEach { (name, licenseText) ->
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(text = name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(text = licenseText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { showLicensesDialog = false }) {
+                        Text("Close")
                     }
                 }
             )
