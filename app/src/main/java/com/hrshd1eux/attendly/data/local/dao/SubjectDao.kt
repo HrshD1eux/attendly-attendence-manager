@@ -18,6 +18,9 @@ interface SubjectDao {
     @Query("SELECT * FROM subjects WHERE isArchived = 0 ORDER BY name ASC")
     fun getActiveSubjects(): Flow<List<SubjectEntity>>
 
+    @Query("SELECT * FROM subjects WHERE isArchived = 0 ORDER BY name ASC")
+    suspend fun getActiveSubjectsSync(): List<SubjectEntity>
+
     @Query("SELECT * FROM subjects WHERE isArchived = 1 ORDER BY name ASC")
     fun getArchivedSubjects(): Flow<List<SubjectEntity>>
 

@@ -17,6 +17,7 @@ import com.hrshd1eux.attendly.data.preferences.UserPreferences
 import com.hrshd1eux.attendly.notification.ClassAlarmScheduler
 import com.hrshd1eux.attendly.ui.navigation.AttendlyAppNavigation
 import com.hrshd1eux.attendly.ui.theme.AttendlyTheme
+import com.hrshd1eux.attendly.widget.WidgetUpdater
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,5 +58,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        WidgetUpdater.notifyDataChanged(applicationContext)
     }
 }

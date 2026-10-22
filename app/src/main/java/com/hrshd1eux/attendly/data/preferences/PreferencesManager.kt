@@ -13,6 +13,7 @@ import com.hrshd1eux.attendly.core.model.AppTheme
 import com.hrshd1eux.attendly.core.model.AttendanceUnitPolicy
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.core.model.TimeFormat
+import com.hrshd1eux.attendly.widget.WidgetUpdater
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -112,6 +113,7 @@ class PreferencesManager @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.TIME_FORMAT] = format.name
         }
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     suspend fun setFirstDayOfWeek(day: DayOfWeek) {
@@ -147,6 +149,7 @@ class PreferencesManager @Inject constructor(
                 preferences[PreferencesKeys.LEAVE_DATE] = ""
             }
         }
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {

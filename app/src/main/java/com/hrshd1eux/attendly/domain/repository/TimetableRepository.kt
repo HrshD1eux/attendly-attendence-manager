@@ -15,5 +15,5 @@ interface TimetableRepository {
     suspend fun deleteSession(id: Long)
     suspend fun clearTimetable()
     suspend fun importParsedTimetable(entries: List<ParsedTimetableEntry>, replaceExisting: Boolean)
-    suspend fun exportTimetableAsText(): String
+    suspend fun exportTimetableAsText(dayOfWeek: DayOfWeek? = null): String
 }

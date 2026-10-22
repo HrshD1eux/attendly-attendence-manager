@@ -15,6 +15,9 @@ interface ClassSessionDao {
     @Query("SELECT * FROM class_sessions ORDER BY date DESC, startMinute ASC")
     fun getAllClassSessions(): Flow<List<ClassSessionEntity>>
 
+    @Query("SELECT * FROM class_sessions ORDER BY date DESC, startMinute ASC")
+    suspend fun getAllClassSessionsSync(): List<ClassSessionEntity>
+
     @Query("SELECT * FROM class_sessions WHERE date = :date ORDER BY startMinute ASC")
     fun getSessionsForDate(date: String): Flow<List<ClassSessionEntity>>
 

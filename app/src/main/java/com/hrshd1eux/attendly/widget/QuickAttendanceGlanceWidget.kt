@@ -62,6 +62,7 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
         val todayStr = today.toString()
         val currentMinute = LocalTime.now().let { it.hour * 60 + it.minute }
 
+        // 1. If on leave today, display On-Leave widget state
         if (prefs.isOnLeaveToday) {
             provideContent {
                 GlanceTheme {
@@ -71,9 +72,20 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
             return
         }
 
+        // 2. If today is a declared holiday, display Holiday widget state
+        val todayHoliday = db.holidayDao().getHolidayForDateSync(todayStr)
+        if (todayHoliday != null) {
+            provideContent {
+                GlanceTheme {
+                    TodayHolidayWidgetContent(holidayName = todayHoliday.name)
+                }
+            }
+            return
+        }
+
         val dayOfWeek = DayOfWeek.fromJavaDayOfWeek(today.dayOfWeek)
         val todaySessions = db.timetableSessionDao().getSessionsForDaySync(dayOfWeek.isoValue)
-        val subjects = db.subjectDao().getActiveSubjects().first()
+        val subjects = db.subjectDao().getActiveSubjectsSync()
         val subjectMap = subjects.associateBy { it.id }
 
         val markedSessions = db.classSessionDao().getSessionsForDateSync(todayStr)
@@ -127,7 +139,7 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
             }
         } else {
             // No unmarked class today: show overall summary or all-caught-up
-            val allSessions = db.classSessionDao().getAllClassSessions().first()
+            val allSessions = db.classSessionDao().getAllClassSessionsSync()
             var totalP = 0
             var totalA = 0
             var totalC = 0
@@ -243,7 +255,7 @@ private fun ActivePromptWidgetContent(
 
             Spacer(modifier = GlanceModifier.height(8.dp))
 
-            // Direct Action Buttons: [P Present] [A Absent]
+            // Row 1: [P  Present] and [A  Absent]
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Button(
                     text = "P  Present",
@@ -278,14 +290,32 @@ private fun ActivePromptWidgetContent(
 
             Spacer(modifier = GlanceModifier.height(6.dp))
 
-            // "On Leave Today" shortcut button
-            Button(
-                text = "🏖️ On Leave Today",
-                onClick = actionRunCallback<MarkLeaveActionCallback>(
-                    actionParametersOf(OnLeaveParamKey to true)
-                ),
-                modifier = GlanceModifier.fillMaxWidth()
-            )
+            // Row 2: [✕  Cancelled] and [🏖️ On Leave]
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                Button(
+                    text = "✕  Cancelled",
+                    onClick = actionRunCallback<RecordAttendanceActionCallback>(
+                        actionParametersOf(
+                            SubjectIdParamKey to subjectId,
+                            StatusParamKey to "CANCELLED",
+                            TimetableSessionIdParamKey to timetableSessionId,
+                            StartMinuteParamKey to startMinute,
+                            EndMinuteParamKey to endMinute
+                        )
+                    ),
+                    modifier = GlanceModifier.defaultWeight()
+                )
+
+                Spacer(modifier = GlanceModifier.width(8.dp))
+
+                Button(
+                    text = "🏖️ On Leave",
+                    onClick = actionRunCallback<MarkLeaveActionCallback>(
+                        actionParametersOf(OnLeaveParamKey to true)
+                    ),
+                    modifier = GlanceModifier.defaultWeight()
+                )
+            }
         }
     }
 }
@@ -416,6 +446,77 @@ private fun OnLeaveWidgetContent() {
                     actionParametersOf(OnLeaveParamKey to false)
                 ),
                 modifier = GlanceModifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayHolidayWidgetContent(holidayName: String) {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .cornerRadius(20.dp)
+            .background(GlanceTheme.colors.surface)
+            .clickable(actionStartActivity<MainActivity>())
+            .padding(14.dp)
+    ) {
+        Column(modifier = GlanceModifier.fillMaxSize()) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Attendly",
+                    style = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = GlanceTheme.colors.primary,
+                        fontSize = 14.sp
+                    )
+                )
+                Spacer(modifier = GlanceModifier.defaultWeight())
+                Text(
+                    text = "🎉 Holiday Today",
+                    style = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = GlanceTheme.colors.primary,
+                        fontSize = 12.sp
+                    )
+                )
+            }
+
+            Spacer(modifier = GlanceModifier.height(6.dp))
+
+            Text(
+                text = holidayName.ifBlank { "Holiday" },
+                style = TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    color = GlanceTheme.colors.onSurface,
+                    fontSize = 15.sp
+                ),
+                maxLines = 1
+            )
+
+            Spacer(modifier = GlanceModifier.height(2.dp))
+
+            Text(
+                text = "Classes are suspended for today. Enjoy your holiday!",
+                style = TextStyle(
+                    color = GlanceTheme.colors.onSurfaceVariant,
+                    fontSize = 12.sp
+                ),
+                maxLines = 2
+            )
+
+            Spacer(modifier = GlanceModifier.height(8.dp))
+
+            Text(
+                text = "Tap to open Attendly",
+                style = TextStyle(
+                    fontWeight = FontWeight.Medium,
+                    color = GlanceTheme.colors.primary,
+                    fontSize = 11.sp
+                )
             )
         }
     }

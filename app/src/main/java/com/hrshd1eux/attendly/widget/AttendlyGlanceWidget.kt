@@ -35,8 +35,6 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.first
-
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
 
 @EntryPoint
@@ -52,8 +50,8 @@ class AttendlyGlanceWidget : GlanceAppWidget() {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
         val db = entryPoint.database()
 
-        val subjects = db.subjectDao().getActiveSubjects().first()
-        val sessions = db.classSessionDao().getAllClassSessions().first()
+        val subjects = db.subjectDao().getActiveSubjectsSync()
+        val sessions = db.classSessionDao().getAllClassSessionsSync()
 
         var totalP = 0
         var totalA = 0

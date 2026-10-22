@@ -242,4 +242,11 @@ class TimetableViewModel @Inject constructor(
             onComplete()
         }
     }
+
+    fun exportTimetable(dayOfWeek: DayOfWeek? = null, onReady: (String) -> Unit) {
+        viewModelScope.launch {
+            val text = timetableRepository.exportTimetableAsText(dayOfWeek)
+            onReady(text)
+        }
+    }
 }

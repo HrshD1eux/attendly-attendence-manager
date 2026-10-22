@@ -16,6 +16,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Today
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
@@ -57,6 +68,22 @@ fun TimetableScreen(
     viewModel: TimetableViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var showShareMenu by remember { mutableStateOf(false) }
+
+    fun shareTimetable(exportedText: String, title: String) {
+        if (exportedText.isBlank()) {
+            Toast.makeText(context, "No classes scheduled to share", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, title)
+            putExtra(Intent.EXTRA_TEXT, exportedText)
+        }
+        val chooser = Intent.createChooser(sendIntent, "Share Timetable")
+        context.startActivity(chooser)
+    }
 
     Scaffold(
         topBar = {
@@ -65,6 +92,51 @@ fun TimetableScreen(
                 canNavigateBack = true,
                 onNavigateBack = onNavigateBack,
                 actions = {
+                    Box {
+                        IconButton(onClick = { showShareMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Timetable"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showShareMenu,
+                            onDismissRequest = { showShareMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Share Full Timetable") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    showShareMenu = false
+                                    viewModel.exportTimetable(null) { exportedText ->
+                                        shareTimetable(exportedText, "My Weekly Timetable")
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Share ${uiState.selectedDay.displayName} Only") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Today,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    showShareMenu = false
+                                    viewModel.exportTimetable(uiState.selectedDay) { exportedText ->
+                                        shareTimetable(exportedText, "${uiState.selectedDay.displayName} Timetable")
+                                    }
+                                }
+                            )
+                        }
+                    }
                     IconButton(onClick = viewModel::openAiPromptDialog) {
                         Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI Prompt", tint = MaterialTheme.colorScheme.primary)
                     }

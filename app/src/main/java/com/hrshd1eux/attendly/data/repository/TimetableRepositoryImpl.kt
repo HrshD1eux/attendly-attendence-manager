@@ -112,29 +112,38 @@ class TimetableRepositoryImpl @Inject constructor(
         WidgetUpdater.notifyDataChanged(context)
     }
 
-    override suspend fun exportTimetableAsText(): String {
-        val sessions = timetableDao.getAllTimetableSessions()
-        val subjects = subjectDao.getAllSubjects()
+    override suspend fun exportTimetableAsText(dayOfWeek: DayOfWeek?): String {
+        val days = if (dayOfWeek != null) listOf(dayOfWeek) else DayOfWeek.entries
         val sb = StringBuilder()
         sb.appendLine("TIMETABLE")
         sb.appendLine("FORMAT_VERSION: 1")
+        if (dayOfWeek != null) {
+            sb.appendLine("# 📅 Attendly Timetable - ${dayOfWeek.displayName}")
+        } else {
+            sb.appendLine("# 📅 Attendly Weekly Timetable")
+        }
         sb.appendLine()
 
-        for (day in DayOfWeek.entries) {
-            val daySessions = timetableDao.getSessionsForDaySync(day.isoValue)
+        var hasAny = false
+        for (day in days) {
+            val daySessions = timetableDao.getSessionsForDaySync(day.isoValue).sortedBy { it.startMinute }
             if (daySessions.isNotEmpty()) {
+                hasAny = true
                 sb.appendLine("DAY: ${day.name}")
                 for (s in daySessions) {
                     val subj = subjectDao.getSubjectById(s.subjectId)
                     val start = TimeUtils.minutesToTimeString(s.startMinute, com.hrshd1eux.attendly.core.model.TimeFormat.FORMAT_24H)
                     val end = TimeUtils.minutesToTimeString(s.endMinute, com.hrshd1eux.attendly.core.model.TimeFormat.FORMAT_24H)
                     val subjName = subj?.name ?: "Unknown"
-                    val loc = s.location
-                    val notesPart = if (s.notes.isNotEmpty()) " | ${s.notes}" else ""
-                    sb.appendLine("$start-$end | $subjName | $loc$notesPart")
+                    val locPart = if (s.location.isNotBlank()) " | ${s.location.trim()}" else ""
+                    val notesPart = if (s.notes.isNotBlank()) " | ${s.notes.trim()}" else ""
+                    sb.appendLine("$start-$end | $subjName$locPart$notesPart")
                 }
                 sb.appendLine()
             }
+        }
+        if (!hasAny) {
+            return ""
         }
         return sb.toString().trim()
     }

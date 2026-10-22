@@ -1,9 +1,12 @@
 package com.hrshd1eux.attendly.data.repository
 
+import android.content.Context
 import com.hrshd1eux.attendly.data.local.dao.HolidayDao
 import com.hrshd1eux.attendly.data.local.entity.HolidayEntity
 import com.hrshd1eux.attendly.domain.model.Holiday
 import com.hrshd1eux.attendly.domain.repository.HolidayRepository
+import com.hrshd1eux.attendly.widget.WidgetUpdater
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -12,6 +15,7 @@ import javax.inject.Singleton
 
 @Singleton
 class HolidayRepositoryImpl @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val holidayDao: HolidayDao
 ) : HolidayRepository {
 
@@ -44,24 +48,30 @@ class HolidayRepositoryImpl @Inject constructor(
             date = date.toString(),
             name = name.trim().ifEmpty { "Holiday" }
         )
-        return holidayDao.insertHoliday(entity)
+        val id = holidayDao.insertHoliday(entity)
+        WidgetUpdater.notifyDataChanged(context)
+        return id
     }
 
     override suspend fun addHolidays(holidays: List<Holiday>) {
         val entities = holidays.map { HolidayEntity.fromDomain(it) }
         holidayDao.insertHolidays(entities)
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     override suspend fun deleteHoliday(id: Long) {
         holidayDao.deleteHolidayById(id)
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     override suspend fun deleteHolidayByDate(date: LocalDate) {
         holidayDao.deleteHolidayByDate(date.toString())
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     override suspend fun clearAllHolidays() {
         holidayDao.clearAllHolidays()
+        WidgetUpdater.notifyDataChanged(context)
     }
 
     override suspend fun seedDefaultNationalHolidays(overwrite: Boolean) {
@@ -75,5 +85,6 @@ class HolidayRepositoryImpl @Inject constructor(
         if (toInsert.isNotEmpty()) {
             holidayDao.insertHolidays(toInsert)
         }
+        WidgetUpdater.notifyDataChanged(context)
     }
 }
