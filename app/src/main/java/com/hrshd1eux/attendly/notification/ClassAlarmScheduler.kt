@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import com.hrshd1eux.attendly.core.model.DayOfWeek
 import com.hrshd1eux.attendly.data.local.dao.HolidayDao
@@ -26,6 +27,11 @@ class ClassAlarmScheduler @Inject constructor(
 ) {
 
     suspend fun scheduleTodayClassAlarms(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+
+        // Always schedule tomorrow's midnight rescheduling alarm to maintain continuous daily cycles
+        scheduleDailyMidnightAlarm(context, alarmManager)
+
         val prefs = preferencesManager.userPreferencesFlow.first()
         if (prefs.isOnLeaveToday || !prefs.notificationsEnabled) return
 
@@ -39,10 +45,14 @@ class ClassAlarmScheduler @Inject constructor(
         val sessions = timetableDao.getSessionsForDaySync(dayOfWeek.isoValue)
         val subjects = subjectDao.getActiveSubjects().first().associateBy { it.id }
 
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val now = LocalDateTime.now()
-
         val offsetMinutes = prefs.notificationOffsetMinutes.coerceIn(0, 30).toLong()
+
+        val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
 
         for (session in sessions) {
             val subject = subjects[session.subjectId] ?: continue
@@ -57,6 +67,7 @@ class ClassAlarmScheduler @Inject constructor(
 
                 val intent = Intent(context, AttendanceNotificationReceiver::class.java).apply {
                     action = AttendanceNotificationReceiver.ACTION_CHECK_CLASS_PROMPT
+                    data = Uri.parse("attendly://alarm/session/${session.id}?start=${session.startMinute}&end=${session.endMinute}")
                     putExtra(AttendanceNotificationReceiver.EXTRA_SUBJECT_ID, subject.id)
                     putExtra(AttendanceNotificationReceiver.EXTRA_SUBJECT_NAME, subject.name)
                     putExtra(AttendanceNotificationReceiver.EXTRA_TIMETABLE_SESSION_ID, session.id)
@@ -65,7 +76,7 @@ class ClassAlarmScheduler @Inject constructor(
                     putExtra(AttendanceNotificationReceiver.EXTRA_LOCATION, session.location)
                 }
 
-                val requestCode = (session.id * 100).toInt()
+                val requestCode = ((session.id.hashCode() * 31 + session.startMinute) and 0x7FFFFFFF)
                 val pendingIntent = PendingIntent.getBroadcast(
                     context,
                     requestCode,
@@ -73,17 +84,64 @@ class ClassAlarmScheduler @Inject constructor(
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-                    } else {
-                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-                    }
-                } catch (e: Exception) {
-                    // Fallback to standard inexact alarm if exact alarm permission is restricted
+                scheduleAlarmCompat(alarmManager, triggerMillis, pendingIntent, canScheduleExact)
+            }
+        }
+    }
+
+    private fun scheduleDailyMidnightAlarm(context: Context, alarmManager: AlarmManager) {
+        val tomorrowMidnight = LocalDate.now().plusDays(1).atTime(0, 1)
+        val triggerMillis = tomorrowMidnight.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val intent = Intent(context, BootReceiver::class.java).apply {
+            action = BootReceiver.ACTION_SCHEDULE_DAILY_ALARMS
+            data = Uri.parse("attendly://alarm/daily_reschedule")
+        }
+        val requestCode = 999999
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun scheduleAlarmCompat(
+        alarmManager: AlarmManager,
+        triggerMillis: Long,
+        pendingIntent: PendingIntent,
+        canScheduleExact: Boolean
+    ) {
+        try {
+            if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+            }
+        } catch (e: SecurityException) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+                } else {
                     alarmManager.set(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
                 }
+            } catch (fallbackEx: Exception) {
+                fallbackEx.printStackTrace()
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

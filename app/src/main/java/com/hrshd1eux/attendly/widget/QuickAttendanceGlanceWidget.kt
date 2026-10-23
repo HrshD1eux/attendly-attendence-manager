@@ -113,16 +113,28 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
             var p = subject?.initialPresent ?: 0
             var a = subject?.initialAbsent ?: 0
             var c = 0
+            var od = 0
+            var med = 0
             for (s in subjectSessions) {
                 when (s.status) {
                     "PRESENT" -> p += s.attendanceUnits
                     "ABSENT" -> a += s.attendanceUnits
                     "CANCELLED" -> c += s.attendanceUnits
-                    "ON_DUTY" -> p += s.attendanceUnits
-                    "MEDICAL_LEAVE" -> c += s.attendanceUnits
+                    "ON_DUTY" -> od += s.attendanceUnits
+                    "MEDICAL_LEAVE" -> med += s.attendanceUnits
                 }
             }
-            val summary = AttendanceCalculator.calculateSummary(p, a, c, subject?.targetPercentage ?: 75)
+            val summary = AttendanceCalculator.calculateSummary(
+                presentUnits = p,
+                absentUnits = a,
+                cancelledUnits = c,
+                targetPercentage = subject?.targetPercentage ?: 75,
+                onDutyUnits = od,
+                medicalUnits = med,
+                onDutyPolicy = prefs.onDutyPolicy,
+                medicalLeavePolicy = prefs.medicalLeavePolicy,
+                medicalConcessionTarget = prefs.medicalConcessionTarget
+            )
 
             provideContent {
                 GlanceTheme {
@@ -145,6 +157,8 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
             var totalP = 0
             var totalA = 0
             var totalC = 0
+            var totalOD = 0
+            var totalMed = 0
             for (s in subjects) {
                 totalP += s.initialPresent
                 totalA += s.initialAbsent
@@ -156,12 +170,22 @@ class QuickAttendanceGlanceWidget : GlanceAppWidget() {
                     "PRESENT" -> totalP += cs.attendanceUnits
                     "ABSENT" -> totalA += cs.attendanceUnits
                     "CANCELLED" -> totalC += cs.attendanceUnits
-                    "ON_DUTY" -> totalP += cs.attendanceUnits
-                    "MEDICAL_LEAVE" -> totalC += cs.attendanceUnits
+                    "ON_DUTY" -> totalOD += cs.attendanceUnits
+                    "MEDICAL_LEAVE" -> totalMed += cs.attendanceUnits
                 }
             }
             val target = if (subjects.isNotEmpty()) (subjects.map { it.targetPercentage }.average()).toInt().coerceIn(1, 100) else 75
-            val summary = AttendanceCalculator.calculateSummary(totalP, totalA, totalC, target)
+            val summary = AttendanceCalculator.calculateSummary(
+                presentUnits = totalP,
+                absentUnits = totalA,
+                cancelledUnits = totalC,
+                targetPercentage = target,
+                onDutyUnits = totalOD,
+                medicalUnits = totalMed,
+                onDutyPolicy = prefs.onDutyPolicy,
+                medicalLeavePolicy = prefs.medicalLeavePolicy,
+                medicalConcessionTarget = prefs.medicalConcessionTarget
+            )
 
             provideContent {
                 GlanceTheme {
@@ -566,6 +590,11 @@ class RecordAttendanceActionCallback : ActionCallback {
             )
         }
 
+        try {
+            QuickAttendanceGlanceWidget().update(context, glanceId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         WidgetUpdater.notifyDataChanged(context)
     }
 }
@@ -580,6 +609,11 @@ class MarkLeaveActionCallback : ActionCallback {
         val prefs = entryPoint.preferencesManager()
         val onLeave = parameters[OnLeaveParamKey] ?: true
         prefs.setOnLeaveToday(onLeave, if (onLeave) "CANCELLED" else "")
+        try {
+            QuickAttendanceGlanceWidget().update(context, glanceId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         WidgetUpdater.notifyDataChanged(context)
     }
 }

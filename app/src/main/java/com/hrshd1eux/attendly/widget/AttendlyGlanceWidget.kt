@@ -36,6 +36,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import com.hrshd1eux.attendly.data.preferences.PreferencesManager
+import kotlinx.coroutines.flow.first
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -49,6 +50,7 @@ class AttendlyGlanceWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val entryPoint = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
         val db = entryPoint.database()
+        val prefs = entryPoint.preferencesManager().userPreferencesFlow.first()
 
         val subjects = db.subjectDao().getActiveSubjectsSync()
         val sessions = db.classSessionDao().getAllClassSessionsSync()
@@ -56,6 +58,8 @@ class AttendlyGlanceWidget : GlanceAppWidget() {
         var totalP = 0
         var totalA = 0
         var totalC = 0
+        var totalOD = 0
+        var totalMed = 0
 
         for (s in subjects) {
             totalP += s.initialPresent
@@ -69,13 +73,23 @@ class AttendlyGlanceWidget : GlanceAppWidget() {
                 "PRESENT" -> totalP += cs.attendanceUnits
                 "ABSENT" -> totalA += cs.attendanceUnits
                 "CANCELLED" -> totalC += cs.attendanceUnits
-                "ON_DUTY" -> totalP += cs.attendanceUnits
-                "MEDICAL_LEAVE" -> totalC += cs.attendanceUnits
+                "ON_DUTY" -> totalOD += cs.attendanceUnits
+                "MEDICAL_LEAVE" -> totalMed += cs.attendanceUnits
             }
         }
 
         val target = if (subjects.isNotEmpty()) (subjects.map { it.targetPercentage }.average()).toInt().coerceIn(1, 100) else 75
-        val summary = AttendanceCalculator.calculateSummary(totalP, totalA, totalC, target)
+        val summary = AttendanceCalculator.calculateSummary(
+            presentUnits = totalP,
+            absentUnits = totalA,
+            cancelledUnits = totalC,
+            targetPercentage = target,
+            onDutyUnits = totalOD,
+            medicalUnits = totalMed,
+            onDutyPolicy = prefs.onDutyPolicy,
+            medicalLeavePolicy = prefs.medicalLeavePolicy,
+            medicalConcessionTarget = prefs.medicalConcessionTarget
+        )
 
         provideContent {
             GlanceTheme {

@@ -60,6 +60,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch {
+            classAlarmScheduler.scheduleTodayClassAlarms(applicationContext)
+        }
+        WidgetUpdater.notifyDataChanged(applicationContext)
+    }
+
     override fun onStop() {
         super.onStop()
         WidgetUpdater.notifyDataChanged(applicationContext)
