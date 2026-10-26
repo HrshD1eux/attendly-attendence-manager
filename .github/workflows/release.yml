@@ -110,8 +110,12 @@ jobs:
           git add version.properties
           git commit -m "chore(release): bump version to ${{ steps.versioning.outputs.tag_name }} [skip ci]"
           git tag -a "${{ steps.versioning.outputs.tag_name }}" -m "Release ${{ steps.versioning.outputs.tag_name }}" -f
-          git push origin "HEAD:${{ github.ref_name || 'main' }}"
-          git push origin "${{ steps.versioning.outputs.tag_name }}" --force
+          # Push both branch commit and tag in a single atomic push to avoid remote ref lock collision
+          git push origin "HEAD:${{ github.ref_name || 'main' }}" "${{ steps.versioning.outputs.tag_name }}" --force || {
+            echo "Initial atomic push failed, waiting 3 seconds before retrying..."
+            sleep 3
+            git push origin "HEAD:${{ github.ref_name || 'main' }}" "${{ steps.versioning.outputs.tag_name }}" --force
+          }
 
       - name: Generate Dynamic Release Notes
         run: |
