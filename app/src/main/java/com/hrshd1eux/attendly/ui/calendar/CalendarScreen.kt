@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 
 import androidx.compose.foundation.layout.Column
 
@@ -448,9 +449,30 @@ fun CalendarScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+
+                        if (uiState.selectedDateHoliday == null) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            OutlinedButton(
+                                onClick = { isAddHolidayDialogOpen = true },
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Celebration,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.size(4.dp))
+                                Text(
+                                    text = "Holiday",
+                                    maxLines = 1,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
                     }
 
-                    // Action buttons row: Record Class, All Present, Holiday (spacious & 100% responsive)
+                    // Action buttons row: Record Class & All Present (responsive & symmetric)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -459,15 +481,25 @@ fun CalendarScreen(
                         Button(
                             onClick = { isRecordDialogOpen = true },
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = if (uiState.scheduledTimetableSessions.isNotEmpty()) {
+                                Modifier.weight(1f)
+                            } else {
+                                Modifier.fillMaxWidth()
+                            },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.size(4.dp))
-                            Text("Record Class")
+                            Spacer(modifier = Modifier.size(6.dp))
+                            Text(
+                                text = "Record Class",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
 
                         if (uiState.scheduledTimetableSessions.isNotEmpty()) {
@@ -477,30 +509,22 @@ fun CalendarScreen(
                                     containerColor = statusColors.present,
                                     contentColor = MaterialTheme.colorScheme.surface
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DoneAll,
                                     contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
-                                Spacer(modifier = Modifier.size(4.dp))
-                                Text("All Present")
-                            }
-                        }
-
-                        if (uiState.selectedDateHoliday == null) {
-                            OutlinedButton(
-                                onClick = { isAddHolidayDialogOpen = true },
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Celebration,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text(
+                                    text = "All Present",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                Spacer(modifier = Modifier.size(4.dp))
-                                Text("Holiday")
                             }
                         }
                     }
